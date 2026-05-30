@@ -1,16 +1,444 @@
 <!DOCTYPE html>
 <html lang="tr">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>FlowDesk - Şirket İçi Haberleşme ve Görev Takip Sistemi</title>
     <link rel="stylesheet" href="style.css">
-    
+
     <!-- Firebase SDK (v10.8.0 Compat sürüm - Statik projeler için en güvenilir CDN) -->
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
 </head>
+
 <body>
+
+    <!-- ===================== LOGIN OVERLAY ===================== -->
+    <div id="loginOverlay" style="
+        position:fixed; inset:0; z-index:9999;
+        background: #0b0f19;
+        background-image: radial-gradient(at 0% 0%, rgba(99,102,241,0.15) 0px, transparent 50%),
+                          radial-gradient(at 100% 100%, rgba(6,182,212,0.15) 0px, transparent 50%);
+        display:flex; align-items:center; justify-content:center;
+        font-family: 'Outfit', sans-serif;
+    ">
+        <style>
+            .lc {
+                background: rgba(17, 24, 39, .78);
+                border: 1px solid rgba(255, 255, 255, .1);
+                border-radius: 24px;
+                padding: 40px;
+                backdrop-filter: blur(20px);
+                box-shadow: 0 25px 60px rgba(0, 0, 0, .5);
+                width: 100%;
+                max-width: 500px;
+                margin: 20px;
+                animation: lcUp .5s cubic-bezier(.4, 0, .2, 1);
+            }
+
+            @keyframes lcUp {
+                from {
+                    opacity: 0;
+                    transform: translateY(28px)
+                }
+
+                to {
+                    opacity: 1;
+                    transform: translateY(0)
+                }
+            }
+
+            .lc-logo {
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                margin-bottom: 32px;
+                gap: 10px;
+            }
+
+            .lc-icon {
+                width: 64px;
+                height: 64px;
+                background: linear-gradient(135deg, #6366f1, #8b5cf6);
+                border-radius: 18px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                font-weight: 800;
+                font-size: 24px;
+                color: #fff;
+                box-shadow: 0 0 30px rgba(99, 102, 241, .5);
+            }
+
+            .lc-title {
+                font-size: 24px;
+                font-weight: 700;
+                background: linear-gradient(to right, #f8fafc, #cbd5e1);
+                -webkit-background-clip: text;
+                -webkit-text-fill-color: transparent;
+            }
+
+            .lc-sub {
+                font-size: 13px;
+                color: #64748b;
+                margin-top: -4px;
+            }
+
+            .lc-tabs {
+                display: flex;
+                background: rgba(255, 255, 255, .04);
+                border: 1px solid rgba(255, 255, 255, .07);
+                border-radius: 14px;
+                padding: 4px;
+                margin-bottom: 28px;
+                gap: 2px;
+            }
+
+            .lc-tab {
+                flex: 1;
+                padding: 10px 6px;
+                background: none;
+                border: none;
+                border-radius: 10px;
+                color: #64748b;
+                font-size: 12px;
+                font-weight: 600;
+                cursor: pointer;
+                transition: all .3s;
+                font-family: Outfit, sans-serif;
+            }
+
+            .lc-tab:hover {
+                color: #94a3b8;
+            }
+
+            .lc-tab.on {
+                background: rgba(15, 23, 42, .9);
+                color: #f8fafc;
+                box-shadow: 0 2px 10px rgba(0, 0, 0, .3);
+            }
+
+            .lc-panel {
+                display: none;
+                animation: lcUp .3s ease;
+            }
+
+            .lc-panel.on {
+                display: block;
+            }
+
+            .lc-label {
+                display: block;
+                font-size: 11px;
+                font-weight: 700;
+                letter-spacing: 1px;
+                color: #64748b;
+                margin-bottom: 8px;
+                text-transform: uppercase;
+            }
+
+            .lc-input {
+                width: 100%;
+                background: rgba(255, 255, 255, .03);
+                border: 1px solid rgba(255, 255, 255, .08);
+                border-radius: 12px;
+                padding: 14px 16px;
+                color: #f8fafc;
+                font-size: 15px;
+                font-family: Outfit, sans-serif;
+                outline: none;
+                transition: all .3s;
+                margin-bottom: 16px;
+            }
+
+            .lc-input:focus {
+                border-color: rgba(99, 102, 241, .5);
+                background: rgba(99, 102, 241, .04);
+                box-shadow: 0 0 0 3px rgba(99, 102, 241, .1);
+            }
+
+            .lc-input::placeholder {
+                color: #475569;
+            }
+
+            .lc-input[readonly] {
+                color: #a5b4fc;
+                font-family: 'Courier New', monospace;
+                font-size: 15px;
+                font-weight: 700;
+                letter-spacing: 1px;
+            }
+
+            .lc-row {
+                display: flex;
+                gap: 8px;
+            }
+
+            .lc-row .lc-input {
+                flex: 1;
+                margin-bottom: 0;
+            }
+
+            .lc-btn-regen {
+                background: rgba(99, 102, 241, .12);
+                border: 1px solid rgba(99, 102, 241, .25);
+                color: #a5b4fc;
+                padding: 14px 14px;
+                border-radius: 12px;
+                cursor: pointer;
+                font-size: 15px;
+                flex-shrink: 0;
+                transition: all .3s;
+            }
+
+            .lc-btn-regen:hover {
+                background: rgba(99, 102, 241, .22);
+                transform: scale(1.05);
+            }
+
+            .lc-btn {
+                width: 100%;
+                padding: 15px;
+                border: none;
+                border-radius: 14px;
+                font-size: 15px;
+                font-weight: 700;
+                font-family: Outfit, sans-serif;
+                cursor: pointer;
+                transition: all .3s;
+                letter-spacing: .3px;
+                margin-top: 4px;
+            }
+
+            .lc-btn-emp {
+                background: linear-gradient(135deg, #06b6d4, #3b82f6);
+                color: #fff;
+                box-shadow: 0 4px 20px rgba(6, 182, 212, .3);
+            }
+
+            .lc-btn-emp:hover {
+                transform: translateY(-2px);
+                box-shadow: 0 8px 30px rgba(6, 182, 212, .45);
+            }
+
+            .lc-btn-boss {
+                background: linear-gradient(135deg, #6366f1, #8b5cf6);
+                color: #fff;
+                box-shadow: 0 4px 20px rgba(99, 102, 241, .3);
+            }
+
+            .lc-btn-boss:hover {
+                transform: translateY(-2px);
+                box-shadow: 0 8px 30px rgba(99, 102, 241, .45);
+            }
+
+            .lc-btn-reg {
+                background: linear-gradient(135deg, #10b981, #059669);
+                color: #fff;
+                box-shadow: 0 4px 20px rgba(16, 185, 129, .3);
+            }
+
+            .lc-btn-reg:hover {
+                transform: translateY(-2px);
+                box-shadow: 0 8px 30px rgba(16, 185, 129, .45);
+            }
+
+            .lc-err {
+                background: rgba(239, 68, 68, .1);
+                border: 1px solid rgba(239, 68, 68, .25);
+                border-radius: 10px;
+                padding: 11px 14px;
+                color: #f87171;
+                font-size: 13px;
+                font-weight: 500;
+                margin-bottom: 14px;
+                display: none;
+            }
+
+            .lc-err.on {
+                display: block;
+                animation: shake .4s ease;
+            }
+
+            @keyframes shake {
+
+                0%,
+                100% {
+                    transform: translateX(0)
+                }
+
+                25% {
+                    transform: translateX(-5px)
+                }
+
+                75% {
+                    transform: translateX(5px)
+                }
+            }
+
+            .lc-warn {
+                background: rgba(245, 158, 11, .08);
+                border: 1px solid rgba(245, 158, 11, .25);
+                border-radius: 12px;
+                padding: 16px;
+                color: #fcd34d;
+                font-size: 13px;
+                font-weight: 600;
+                margin-top: 16px;
+                display: none;
+                text-align: center;
+                line-height: 1.7;
+            }
+
+            .lc-warn.on {
+                display: block;
+                animation: lcUp .4s ease;
+            }
+
+            .lc-warn .wcode {
+                font-family: 'Courier New', monospace;
+                font-size: 17px;
+                color: #fbbf24;
+                display: block;
+                margin: 4px 0;
+            }
+
+            .lc-warn .wsub {
+                font-size: 11px;
+                color: #f59e0b;
+            }
+
+            .lc-info {
+                background: rgba(99, 102, 241, .06);
+                border: 1px dashed rgba(99, 102, 241, .2);
+                border-radius: 12px;
+                padding: 14px;
+                margin-bottom: 20px;
+                font-size: 13px;
+                color: #94a3b8;
+                line-height: 1.7;
+            }
+
+            .lc-info strong {
+                color: #c7d2fe;
+            }
+
+            .lc-mb {
+                margin-bottom: 16px;
+            }
+
+            #lc-toast {
+                position: fixed;
+                bottom: 28px;
+                left: 50%;
+                transform: translateX(-50%) translateY(70px);
+                background: #1e293b;
+                border: 1px solid rgba(255, 255, 255, .1);
+                border-left: 4px solid #6366f1;
+                padding: 13px 26px;
+                border-radius: 12px;
+                color: #f8fafc;
+                font-size: 14px;
+                font-weight: 500;
+                box-shadow: 0 10px 30px rgba(0, 0, 0, .4);
+                z-index: 10000;
+                opacity: 0;
+                transition: all .4s cubic-bezier(.175, .885, .32, 1.275);
+                white-space: nowrap;
+            }
+
+            #lc-toast.on {
+                opacity: 1;
+                transform: translateX(-50%) translateY(0);
+            }
+
+            /* Logout btn in header */
+            .btn-logout {
+                background: rgba(239, 68, 68, .1);
+                border: 1px solid rgba(239, 68, 68, .25);
+                color: #f87171;
+                padding: 6px 14px;
+                border-radius: 20px;
+                font-size: 12px;
+                font-weight: 600;
+                cursor: pointer;
+                font-family: Outfit, sans-serif;
+                transition: all .3s;
+                margin-left: 10px;
+            }
+
+            .btn-logout:hover {
+                background: rgba(239, 68, 68, .2);
+                color: #fca5a5;
+            }
+        </style>
+
+        <div class="lc">
+            <!-- Logo -->
+            <div class="lc-logo">
+                <div class="lc-icon">FD</div>
+                <div class="lc-title">FlowDesk SaaS Portal</div>
+                <div class="lc-sub">Şirket içi operasyon ve yönetim paneli</div>
+            </div>
+
+            <!-- Tabs -->
+            <div class="lc-tabs">
+                <button class="lc-tab on" onclick="lcTab('emp')" id="lct-emp">👤 Personel Girişi</button>
+                <button class="lc-tab" onclick="lcTab('boss')" id="lct-boss">💼 Patron Girişi</button>
+                <button class="lc-tab" onclick="lcTab('reg')" id="lct-reg">🏢 Şirket Kur</button>
+            </div>
+
+            <!-- Panel: Personel -->
+            <div class="lc-panel on" id="lcp-emp">
+                <div id="lc-emp-err" class="lc-err"></div>
+                <label class="lc-label">Şirket Kodu (Tenant ID)</label>
+                <input class="lc-input" id="lc-emp-tenant" placeholder="fd-3i4p">
+                <label class="lc-label">Kullanıcı Adınız</label>
+                <input class="lc-input" id="lc-emp-name" placeholder="Ahmet Can">
+                <label class="lc-label">Personel Şifreniz</label>
+                <input class="lc-input" id="lc-emp-pass" type="password" placeholder="Patronunuzun verdiği şifre">
+                <button class="lc-btn lc-btn-emp" onclick="lcLoginEmp()">Personel Paneline Giriş Yap</button>
+            </div>
+
+            <!-- Panel: Patron -->
+            <div class="lc-panel" id="lcp-boss">
+                <div id="lc-boss-err" class="lc-err"></div>
+                <label class="lc-label">Şirket Kodu (Tenant ID)</label>
+                <input class="lc-input" id="lc-boss-tenant" placeholder="fd-3i4p">
+                <label class="lc-label">Patron Şifresi</label>
+                <input class="lc-input" id="lc-boss-pass" type="password" placeholder="Patron giriş şifreniz">
+                <button class="lc-btn lc-btn-boss" onclick="lcLoginBoss()">Patron Paneline Giriş Yap</button>
+            </div>
+
+            <!-- Panel: Şirket Kur -->
+            <div class="lc-panel" id="lcp-reg">
+                <div class="lc-info">Yeni bir şirket hesabı oluşturun. <strong>Şirket Kodunuz</strong> otomatik
+                    üretilecek — personelinizle bu kodu paylaşarak sisteme davet edin.</div>
+                <div id="lc-reg-err" class="lc-err"></div>
+                <label class="lc-label">Şirket / Kurum Adı</label>
+                <input class="lc-input" id="lc-reg-company" placeholder="Örn: Acme Yazılım A.Ş.">
+                <label class="lc-label">Patron Adı Soyadı</label>
+                <input class="lc-input" id="lc-reg-owner" placeholder="Örn: Mehmet Yılmaz">
+                <label class="lc-label">Patron Şifresi</label>
+                <input class="lc-input" id="lc-reg-pass" type="password" placeholder="Güvenli bir şifre seçin">
+                <label class="lc-label">Şirket Kodunuz (Otomatik Üretildi)</label>
+                <div class="lc-row lc-mb">
+                    <input class="lc-input" id="lc-reg-tid" readonly>
+                    <button class="lc-btn-regen" onclick="lcRegenTenant()" title="Yeni kod üret">🔄</button>
+                </div>
+                <button class="lc-btn lc-btn-reg" onclick="lcRegister()">Şirketi Kaydet &amp; Panele Giriş Yap</button>
+                <div class="lc-warn" id="lc-reg-warn">
+                    ⚠️ <strong>Bu kodu kaydediniz ve paylaşmayınız!</strong><br>
+                    <span class="wcode" id="lc-reg-warn-code"></span>
+                    <span class="wsub">Bu kod olmadan panele tekrar erişemezsiniz.</span>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div id="lc-toast"></div>
+    <!-- ===================== / LOGIN OVERLAY ===================== -->
+
 
     <!-- Header & Role Switcher -->
     <header>
@@ -18,46 +446,63 @@
             <div class="logo-icon">F</div>
             <div class="logo-text">FlowDesk</div>
         </div>
-        
+
         <!-- Connection Status Banner -->
-        <div id="connectionBanner" class="connection-status offline-mode" style="margin-left: 20px; font-size: 12px; font-weight: 600; padding: 4px 10px; border-radius: 20px;">
+        <div id="connectionBanner" class="connection-status offline-mode"
+            style="margin-left: 20px; font-size: 12px; font-weight: 600; padding: 4px 10px; border-radius: 20px;">
             Çevrimdışı (Simülasyon Modu)
         </div>
-        
+
         <div class="role-switcher-container" style="margin-left: auto;">
-            <span class="role-label">AKTİF KULLANICI:</span>
-            <select id="roleSelect" class="role-select" onchange="changeUserRole(this.value)">
-                <!-- Dynamically populated from JS -->
-            </select>
+            <span class="role-label" id="activeUserLabel">HOŞ GELDİN</span>
             <div class="user-status-indicator"></div>
         </div>
+        <button class="btn-logout" onclick="lcLogout()">🚪 Çıkış</button>
+        <!-- roleSelect gizli — sadece JS için gerekli -->
+        <select id="roleSelect" style="display:none;" onchange="changeUserRole(this.value)"></select>
     </header>
 
     <!-- Main Workspace -->
     <main>
-        
+
         <!-- Left Sidebar: Channels & Group Chats -->
         <aside class="sidebar">
             <div id="adminPanelBtnContainer" style="display: flex; flex-direction: column; gap: 8px;">
                 <button class="btn-primary" onclick="openCreateGroupModal()">
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+                        stroke-linecap="round" stroke-linejoin="round">
+                        <line x1="12" y1="5" x2="12" y2="19"></line>
+                        <line x1="5" y1="12" x2="19" y2="12"></line>
+                    </svg>
                     <span>Yeni Görev & Sohbet</span>
                 </button>
                 <button class="btn-success" onclick="openCreateEmployeeModal()">
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="8.5" cy="7" r="4"></circle><line x1="20" y1="8" x2="20" y2="14"></line><line x1="23" y1="11" x2="17" y2="11"></line></svg>
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+                        stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+                        <circle cx="8.5" cy="7" r="4"></circle>
+                        <line x1="20" y1="8" x2="20" y2="14"></line>
+                        <line x1="23" y1="11" x2="17" y2="11"></line>
+                    </svg>
                     <span>Yeni Eleman Kaydı</span>
                 </button>
             </div>
 
             <!-- Observer Join Box -->
-            <div style="padding: 12px; background: rgba(255,255,255,0.03); border-radius: 12px; border: 1px dashed var(--border-glass);">
-                <span class="form-label" style="font-size: 10px; margin-bottom: 6px; display: block; letter-spacing: 0.5px;">👁️ GÖZLEMCİ GİRİŞİ</span>
+            <div
+                style="padding: 12px; background: rgba(255,255,255,0.03); border-radius: 12px; border: 1px dashed var(--border-glass);">
+                <span class="form-label"
+                    style="font-size: 10px; margin-bottom: 6px; display: block; letter-spacing: 0.5px;">👁️ GÖZLEMCİ
+                    GİRİŞİ</span>
                 <div style="display: flex; gap: 6px;">
-                    <input type="text" id="observerCodeInput" class="form-input" style="padding: 8px 12px; font-size: 11px; flex: 1; height: 32px;" placeholder="Davet kodunu girin...">
-                    <button class="btn-success" style="padding: 0 10px; width: auto; font-size: 11px; height: 32px;" onclick="joinAsObserver()">Katıl</button>
+                    <input type="text" id="observerCodeInput" class="form-input"
+                        style="padding: 8px 12px; font-size: 11px; flex: 1; height: 32px;"
+                        placeholder="Davet kodunu girin...">
+                    <button class="btn-success" style="padding: 0 10px; width: auto; font-size: 11px; height: 32px;"
+                        onclick="joinAsObserver()">Katıl</button>
                 </div>
             </div>
-            
+
             <div>
                 <h3 class="section-title">
                     <span>SOHBET GRUPLARIM</span>
@@ -76,16 +521,21 @@
                     <div class="chat-info" style="flex: 1;">
                         <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
                             <div id="activeChatTitle" class="chat-title">Görev Grubu</div>
-                            <span id="activeChatDeadline" class="deadline-badge danger-time" style="display: none;">⏳ Kalan: --</span>
+                            <span id="activeChatDeadline" class="deadline-badge danger-time" style="display: none;">⏳
+                                Kalan: --</span>
                         </div>
                         <div id="activeChatSubtitle" class="chat-subtitle">Grup Üyeleri</div>
                     </div>
-                    
+
                     <div style="display: flex; gap: 6px; align-items: center;">
-                        <button id="addObserverBtn" class="btn-secondary-outline" style="padding: 6px 12px; font-size: 11px; width: auto; display: none;" onclick="openAddObserverModal()">
+                        <button id="addObserverBtn" class="btn-secondary-outline"
+                            style="padding: 6px 12px; font-size: 11px; width: auto; display: none;"
+                            onclick="openAddObserverModal()">
                             👁️ Gözlemci Ekle
                         </button>
-                        <button id="generateObserverCodeBtn" class="btn-secondary-outline" style="padding: 6px 12px; font-size: 11px; width: auto; display: none;" onclick="generateObserverCode()">
+                        <button id="generateObserverCodeBtn" class="btn-secondary-outline"
+                            style="padding: 6px 12px; font-size: 11px; width: auto; display: none;"
+                            onclick="generateObserverCode()">
                             🔑 Gözlemci Kodu Üret
                         </button>
                     </div>
@@ -97,17 +547,19 @@
 
                 <!-- Chat inputs (dynamic observers display) -->
                 <div id="chatInputArea" class="chat-input-container">
-                    <input type="text" id="chatInput" class="chat-input" placeholder="Mesajınızı yazın..." onkeydown="handleChatSubmit(event)">
+                    <input type="text" id="chatInput" class="chat-input" placeholder="Mesajınızı yazın..."
+                        onkeydown="handleChatSubmit(event)">
                     <button class="btn-send" onclick="sendMessage()">
                         <svg viewBox="0 0 24 24">
-                            <path d="M2 21l21-9L2 3v7l15 2-15 2v7z"/>
+                            <path d="M2 21l21-9L2 3v7l15 2-15 2v7z" />
                         </svg>
                     </button>
                 </div>
 
                 <!-- Observer Read-Only Display Banner -->
                 <div id="chatObserverBanner" class="observer-notice-banner" style="display: none;">
-                    👁️ Bu sohbete **Gözlemci (Salt-Okunur)** olarak katıldınız. Mesaj gönderemez ve görev durumlarını değiştiremezsiniz.
+                    👁️ Bu sohbete **Gözlemci (Salt-Okunur)** olarak katıldınız. Mesaj gönderemez ve görev durumlarını
+                    değiştiremezsiniz.
                 </div>
             </div>
 
@@ -115,7 +567,9 @@
             <div id="chatEmptyState" class="chat-empty-state">
                 <div class="empty-icon">💬</div>
                 <div class="empty-title">Bir Sohbet Seçin</div>
-                <div class="empty-desc">Soldaki listeden aktif bir görev grubuna tıklayarak mesajlaşmayı ve görev detaylarını görüntüleyin. Eleman değiştirdiğinizde sadece o elemanın yetkili olduğu sohbetler görünecektir.</div>
+                <div class="empty-desc">Soldaki listeden aktif bir görev grubuna tıklayarak mesajlaşmayı ve görev
+                    detaylarını görüntüleyin. Eleman değiştirdiğinizde sadece o elemanın yetkili olduğu sohbetler
+                    görünecektir.</div>
             </div>
         </section>
 
@@ -141,7 +595,8 @@
             <div id="tasksPanelEmpty" class="chat-empty-state" style="height: 100%;">
                 <div class="empty-icon" style="font-size: 36px; margin-bottom: 12px;">📋</div>
                 <div class="empty-title" style="font-size: 16px;">Görev Yok</div>
-                <div class="empty-desc" style="font-size: 12px;">Görev listesini görüntülemek için lütfen aktif bir sohbet grubunu seçin.</div>
+                <div class="empty-desc" style="font-size: 12px;">Görev listesini görüntülemek için lütfen aktif bir
+                    sohbet grubunu seçin.</div>
             </div>
         </aside>
 
@@ -154,7 +609,7 @@
                 <h3 class="modal-title">Yeni Görev Grubu Oluştur</h3>
                 <button class="modal-close" onclick="closeCreateGroupModal()">&times;</button>
             </div>
-            
+
             <div class="form-group">
                 <label class="form-label" for="groupNameInput">SOHBET GRUBU ADI (PROJE ADI)</label>
                 <input type="text" id="groupNameInput" class="form-input" placeholder="Örn: Mobil Arayüz Revizyonu">
@@ -167,7 +622,8 @@
 
             <div class="form-group">
                 <label class="form-label">GÖREVLİ ELEMANLARI SEÇİN (Sadece seçilenler sohbete erişebilir!)</label>
-                <div id="employeeSelectGrid" class="employee-select-grid" style="grid-template-columns: repeat(2, 1fr);">
+                <div id="employeeSelectGrid" class="employee-select-grid"
+                    style="grid-template-columns: repeat(2, 1fr);">
                     <!-- Dynamically populated from JS -->
                 </div>
             </div>
@@ -176,27 +632,35 @@
                 <label class="form-label">GÖREVLER (EN AZ 1 GÖREV EKLEYİN)</label>
                 <div id="modalTasksBuilder" class="tasks-builder-container">
                     <div class="task-builder-item">
-                        <input type="text" class="form-input task-builder-input" style="flex: 1;" placeholder="1. Görevi yazın...">
+                        <input type="text" class="form-input task-builder-input" style="flex: 1;"
+                            placeholder="1. Görevi yazın...">
                         <button class="btn-remove-task" onclick="removeTaskBuilderItem(this)">&times;</button>
                     </div>
                     <div class="task-builder-item">
-                        <input type="text" class="form-input task-builder-input" style="flex: 1;" placeholder="2. Görevi yazın...">
+                        <input type="text" class="form-input task-builder-input" style="flex: 1;"
+                            placeholder="2. Görevi yazın...">
                         <button class="btn-remove-task" onclick="removeTaskBuilderItem(this)">&times;</button>
                     </div>
                     <div class="task-builder-item">
-                        <input type="text" class="form-input task-builder-input" style="flex: 1;" placeholder="3. Görevi yazın...">
+                        <input type="text" class="form-input task-builder-input" style="flex: 1;"
+                            placeholder="3. Görevi yazın...">
                         <button class="btn-remove-task" onclick="removeTaskBuilderItem(this)">&times;</button>
                     </div>
                 </div>
                 <button class="btn-secondary-outline" style="margin-top: 8px;" onclick="addTaskBuilderItem()">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+                        stroke-linecap="round" stroke-linejoin="round">
+                        <line x1="12" y1="5" x2="12" y2="19"></line>
+                        <line x1="5" y1="12" x2="19" y2="12"></line>
+                    </svg>
                     <span>Yeni Görev Ekle</span>
                 </button>
             </div>
 
             <div class="modal-footer">
                 <button class="btn-cancel" onclick="closeCreateGroupModal()">Vazgeç</button>
-                <button class="btn-primary" style="flex: 1.5;" onclick="submitNewGroup()">Görevleri Ata & Grubu Başlat</button>
+                <button class="btn-primary" style="flex: 1.5;" onclick="submitNewGroup()">Görevleri Ata & Grubu
+                    Başlat</button>
             </div>
         </div>
     </div>
@@ -208,7 +672,7 @@
                 <h3 class="modal-title">Yeni Eleman Kaydı Yap</h3>
                 <button class="modal-close" onclick="closeCreateEmployeeModal()">&times;</button>
             </div>
-            
+
             <div class="form-group">
                 <label class="form-label" for="employeeNameInput">ELEMAN ADI SOYADI</label>
                 <input type="text" id="employeeNameInput" class="form-input" placeholder="Örn: Ahmet Yılmaz">
@@ -220,27 +684,38 @@
             </div>
 
             <div class="form-group">
+                <label class="form-label" for="employeePassInput">PERSONEL GİRİŞ ŞİFRESİ</label>
+                <input type="password" id="employeePassInput" class="form-input"
+                    placeholder="Personelin giriş yapacağı şifre">
+            </div>
+
+            <div class="form-group">
                 <label class="form-label">AVATAR RENGİ</label>
                 <div style="display: flex; gap: 10px; justify-content: space-between; margin-top: 5px;">
                     <label style="cursor: pointer; display: flex; align-items: center; gap: 4px;">
                         <input type="radio" name="avatarColor" value="1" checked>
-                        <span style="width: 20px; height: 20px; border-radius: 50%; background: #3b82f6; display: inline-block;"></span>
+                        <span
+                            style="width: 20px; height: 20px; border-radius: 50%; background: #3b82f6; display: inline-block;"></span>
                     </label>
                     <label style="cursor: pointer; display: flex; align-items: center; gap: 4px;">
                         <input type="radio" name="avatarColor" value="2">
-                        <span style="width: 20px; height: 20px; border-radius: 50%; background: #10b981; display: inline-block;"></span>
+                        <span
+                            style="width: 20px; height: 20px; border-radius: 50%; background: #10b981; display: inline-block;"></span>
                     </label>
                     <label style="cursor: pointer; display: flex; align-items: center; gap: 4px;">
                         <input type="radio" name="avatarColor" value="3">
-                        <span style="width: 20px; height: 20px; border-radius: 50%; background: #f59e0b; display: inline-block;"></span>
+                        <span
+                            style="width: 20px; height: 20px; border-radius: 50%; background: #f59e0b; display: inline-block;"></span>
                     </label>
                     <label style="cursor: pointer; display: flex; align-items: center; gap: 4px;">
                         <input type="radio" name="avatarColor" value="4">
-                        <span style="width: 20px; height: 20px; border-radius: 50%; background: #ec4899; display: inline-block;"></span>
+                        <span
+                            style="width: 20px; height: 20px; border-radius: 50%; background: #ec4899; display: inline-block;"></span>
                     </label>
                     <label style="cursor: pointer; display: flex; align-items: center; gap: 4px;">
                         <input type="radio" name="avatarColor" value="5">
-                        <span style="width: 20px; height: 20px; border-radius: 50%; background: #8b5cf6; display: inline-block;"></span>
+                        <span
+                            style="width: 20px; height: 20px; border-radius: 50%; background: #8b5cf6; display: inline-block;"></span>
                     </label>
                 </div>
             </div>
@@ -261,14 +736,18 @@
             </div>
             <div class="form-group">
                 <label class="form-label">GRUBA GÖZLEMCİ OLARAK EKLENECEK KİŞİYİ SEÇİN</label>
-                <div id="observerSelectGrid" class="employee-select-grid" style="grid-template-columns: repeat(2, 1fr);">
+                <div id="observerSelectGrid" class="employee-select-grid"
+                    style="grid-template-columns: repeat(2, 1fr);">
                     <!-- Dynamically populated -->
                 </div>
-                <p id="noObserverCandidates" style="display: none; color: var(--text-muted); font-size: 12px; text-align: center; padding: 16px 0;">Eklenecek uygun kişi bulunmuyor. Tüm çalışanlar zaten bu grubun üyesi veya gözlemcisi.</p>
+                <p id="noObserverCandidates"
+                    style="display: none; color: var(--text-muted); font-size: 12px; text-align: center; padding: 16px 0;">
+                    Eklenecek uygun kişi bulunmuyor. Tüm çalışanlar zaten bu grubun üyesi veya gözlemcisi.</p>
             </div>
             <div class="modal-footer">
                 <button class="btn-cancel" onclick="closeAddObserverModal()">Vazgeç</button>
-                <button class="btn-primary" style="flex: 1.5;" onclick="submitAddObserver()">Gözlemci Olarak Ekle</button>
+                <button class="btn-primary" style="flex: 1.5;" onclick="submitAddObserver()">Gözlemci Olarak
+                    Ekle</button>
             </div>
         </div>
     </div>
@@ -280,4 +759,5 @@
 
     <script src="app.js"></script>
 </body>
+
 </html>

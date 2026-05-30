@@ -1,12 +1,12 @@
 // Firebase configuration containing live project credentials
 const firebaseConfig = {
-  apiKey: "AIzaSyBULevJdG_T3I_iCTKSlRTPVPSNCa1Un8I",
-  authDomain: "sirketicihaberlesme-647b7.firebaseapp.com",
-  projectId: "sirketicihaberlesme-647b7",
-  storageBucket: "sirketicihaberlesme-647b7.firebasestorage.app",
-  messagingSenderId: "328315719310",
-  appId: "1:328315719310:web:a77d9b7d203b32a3be43df",
-  measurementId: "G-6HV2PNMQCX"
+    apiKey: "AIzaSyBULevJdG_T3I_iCTKSlRTPVPSNCa1Un8I",
+    authDomain: "sirketicihaberlesme-647b7.firebaseapp.com",
+    projectId: "sirketicihaberlesme-647b7",
+    storageBucket: "sirketicihaberlesme-647b7.firebasestorage.app",
+    messagingSenderId: "328315719310",
+    appId: "1:328315719310:web:a77d9b7d203b32a3be43df",
+    measurementId: "G-6HV2PNMQCX"
 };
 
 // ====================================================================
@@ -23,15 +23,8 @@ let db = null;
 let isFirebaseConnected = false;
 let broadcastChannel = null;
 
-// Initial Default Employees
-const DEFAULT_EMPLOYEES = [
-    { name: "Ali", role: "Yazılım", color: "1", createdAt: 1717070000001 },
-    { name: "Murat", role: "Tasarım", color: "2", createdAt: 1717070000002 },
-    { name: "Zeynep", role: "Devops", color: "3", createdAt: 1717070000003 },
-    { name: "Hakan", role: "Test", color: "4", createdAt: 1717070000004 },
-    { name: "Ayşe", role: "Pazarlama", color: "5", createdAt: 1717070000005 },
-    { name: "Elif", role: "Ürün", color: "1", createdAt: 1717070000006 }
-];
+// Initial Default Employees — boş başlar, patron ekler
+const DEFAULT_EMPLOYEES = [];
 
 // Calculate future dates for realistic Mock Deadlines
 const getFutureDateString = (daysOffset) => {
@@ -40,53 +33,14 @@ const getFutureDateString = (daysOffset) => {
     return d.toISOString().split('T')[0];
 };
 
-// Initial Mock Data with deadlines and observers
-const INITIAL_MOCK_DATA = [
-    {
-        id: "group_mock_1",
-        name: "SaaS Tanıtım Web Sitesi",
-        members: ["Patron", "Ali", "Murat"],
-        observers: [],
-        deadline: getFutureDateString(3), // 3 days from now
-        tasks: [
-            { id: "task_mock_1", title: "1. Figma web tasarımlarını incele", completed: true, completedBy: "Ali" },
-            { id: "task_mock_2", title: "2. Fiyatlandırma tablosunu responsive kodla", completed: false, completedBy: null },
-            { id: "task_mock_3", title: "3. Mobil uyumluluk testlerini tamamla", completed: false, completedBy: null }
-        ],
-        messages: [
-            { sender: "Sistem", text: "Patron yeni bir görev grubu oluşturdu ve Ali ile Murat elemanlarını görevlendirdi. Sadece bu elemanlar erişebilir.", time: "14:32", isSystem: true },
-            { sender: "Patron", text: "Arkadaşlar selamlar, SaaS lansmanı için tanıtım sitesi görevlerini buraya ekledim. Hızlıca bitirelim.", time: "14:33", isSystem: false },
-            { sender: "Ali", text: "Selam Patron! Ben tasarımları zaten incelemiştim, hemen ilk görevi tikliyorum.", time: "14:35", isSystem: false },
-            { sender: "Sistem", text: "Ali, '1. Figma web tasarımlarını incele' görevini tamamladı! ✅", time: "14:35", isSystem: true },
-            { sender: "Murat", text: "Harika, ben de fiyatlandırma tablosunu yazmaya başladım. Akşama bitmiş olur.", time: "14:38", isSystem: false }
-        ],
-        createdAt: Date.now() - 3600000 // 1 hour ago
-    },
-    {
-        id: "group_mock_2",
-        name: "Devops & Güvenlik Altyapısı",
-        members: ["Patron", "Zeynep", "Hakan"],
-        observers: [],
-        deadline: getFutureDateString(10), // 10 days from now
-        tasks: [
-            { id: "task_mock_4", title: "1. SSL sertifikalarını yükle", completed: true, completedBy: "Zeynep" },
-            { id: "task_mock_5", title: "2. Firewall kurallarını test et", completed: false, completedBy: null },
-            { id: "task_mock_6", title: "3. DDoS korumasını aktif et", completed: false, completedBy: null }
-        ],
-        messages: [
-            { sender: "Sistem", text: "Patron yeni bir görev grubu oluşturdu ve Zeynep ile Hakan elemanlarını görevlendirdi. Sadece bu elemanlar erişebilir.", time: "10:15", isSystem: true },
-            { sender: "Zeynep", text: "SSL sertifikaları tamamlandı, test ekibi sızma testlerine başlayabilir.", time: "10:45", isSystem: false },
-            { sender: "Sistem", text: "Zeynep, '1. SSL sertifikalarını yükle' görevini tamamladı! ✅", time: "10:45", isSystem: true }
-        ],
-        createdAt: Date.now() - 7200000 // 2 hours ago
-    }
-];
+// Initial Mock Data — boş başlar
+const INITIAL_MOCK_DATA = [];
 
 // App Init
 window.addEventListener("DOMContentLoaded", () => {
+    loadActiveUser(); // state.activeUser'ı Firebase/render'dan ÖNCE set et
     initFirebaseOrSimulation();
-    loadActiveUser();
-    
+
     // Auto-update time countdown indicators every 60 seconds dynamically
     setInterval(() => {
         if (state.activeGroupId) {
@@ -98,20 +52,20 @@ window.addEventListener("DOMContentLoaded", () => {
 // Initialize Firebase or Simulation Fallback
 function initFirebaseOrSimulation() {
     const banner = document.getElementById("connectionBanner");
-    
-    const isFirebaseConfigured = firebaseConfig.apiKey && 
-                                firebaseConfig.apiKey !== "BURAYA_API_KEY_YAZIN" && 
-                                firebaseConfig.projectId !== "BURAYA_PROJECT_ID_YAZIN";
-    
+
+    const isFirebaseConfigured = firebaseConfig.apiKey &&
+        firebaseConfig.apiKey !== "BURAYA_API_KEY_YAZIN" &&
+        firebaseConfig.projectId !== "BURAYA_PROJECT_ID_YAZIN";
+
     if (isFirebaseConfigured) {
         try {
             firebase.initializeApp(firebaseConfig);
             db = firebase.firestore();
             isFirebaseConnected = true;
-            
+
             banner.innerText = "Bulut Bağlantısı Aktif (Firebase Firestore)";
             banner.className = "connection-status online-mode";
-            
+
             listenToFirestore();
             showToast("Firebase Firestore bağlantısı kuruldu!");
         } catch (error) {
@@ -128,7 +82,7 @@ function initSimulationMode(banner) {
     isFirebaseConnected = false;
     banner.innerText = "Çevrimdışı (Simülasyon Modu - Sekmeler Arası Eşzamanlı)";
     banner.className = "connection-status offline-mode";
-    
+
     try {
         broadcastChannel = new BroadcastChannel("flowdesk_channel");
         broadcastChannel.onmessage = (event) => {
@@ -136,14 +90,14 @@ function initSimulationMode(banner) {
                 if (event.data.type === "SYNC_STATE") {
                     state.groups = event.data.groups;
                     state.employees = event.data.employees;
-                    
+
                     // Verify active selections
                     const visibleGroups = getVisibleGroups();
                     const stillExists = visibleGroups.some(g => g.id === state.activeGroupId);
                     if (!stillExists) {
                         state.activeGroupId = visibleGroups.length > 0 ? visibleGroups[0].id : null;
                     }
-                    
+
                     renderRoleSwitcher();
                     renderEmployeeChips();
                     renderApp();
@@ -154,7 +108,7 @@ function initSimulationMode(banner) {
     } catch (e) {
         console.warn("BroadcastChannel desteklenmiyor.", e);
     }
-    
+
     // Load local storage groups
     const savedGroups = localStorage.getItem("flowdesk_groups");
     if (savedGroups) {
@@ -172,16 +126,16 @@ function initSimulationMode(banner) {
         state.employees = DEFAULT_EMPLOYEES;
         localStorage.setItem("flowdesk_employees", JSON.stringify(state.employees));
     }
-    
+
     renderRoleSwitcher();
     renderEmployeeChips();
-    
+
     // Select first group
     const visible = getVisibleGroups();
     if (visible.length > 0) {
         state.activeGroupId = visible[0].id;
     }
-    
+
     renderApp();
 }
 
@@ -195,7 +149,7 @@ function listenToFirestore() {
             snapshot.forEach(doc => {
                 fetchedEmployees.push(doc.data());
             });
-            
+
             if (fetchedEmployees.length === 0) {
                 // Populate default employees into Firestore if empty
                 DEFAULT_EMPLOYEES.forEach(emp => {
@@ -222,17 +176,17 @@ function listenToFirestore() {
                     ...doc.data()
                 });
             });
-            
+
             state.groups = fetchedGroups;
-            
+
             // Access permission verification
             if (state.activeGroupId) {
                 const group = state.groups.find(g => g.id === state.activeGroupId);
-                
+
                 // Allow view if standard member OR observer
                 const isMember = group && group.members && group.members.includes(state.activeUser);
                 const isObs = group && group.observers && group.observers.includes(state.activeUser);
-                
+
                 if (!group || (state.activeUser !== "Patron" && !isMember && !isObs)) {
                     const visible = getVisibleGroups();
                     state.activeGroupId = visible.length > 0 ? visible[0].id : null;
@@ -243,7 +197,7 @@ function listenToFirestore() {
                     state.activeGroupId = visible[0].id;
                 }
             }
-            
+
             renderApp();
         }, (error) => {
             console.error("Firestore groups listen error:", error);
@@ -252,11 +206,17 @@ function listenToFirestore() {
 
 // Load active user
 function loadActiveUser() {
-    const savedUser = localStorage.getItem("flowdesk_active_user");
-    if (savedUser) {
-        state.activeUser = savedUser;
-        document.getElementById("roleSelect").value = savedUser;
+    const session = JSON.parse(localStorage.getItem("flowdesk_session") || "{}");
+    if (session.role === "boss") {
+        state.activeUser = "Patron";
+    } else if (session.role === "employee" && session.name) {
+        state.activeUser = session.name;
+    } else {
+        // session yoksa localStorage fallback
+        const saved = localStorage.getItem("flowdesk_active_user");
+        if (saved) state.activeUser = saved;
     }
+    localStorage.setItem("flowdesk_active_user", state.activeUser);
 }
 
 // Save data locally (Sim mode)
@@ -264,7 +224,7 @@ function saveData() {
     if (!isFirebaseConnected) {
         localStorage.setItem("flowdesk_groups", JSON.stringify(state.groups));
         localStorage.setItem("flowdesk_employees", JSON.stringify(state.employees));
-        
+
         if (broadcastChannel) {
             broadcastChannel.postMessage({
                 type: "SYNC_STATE",
@@ -275,41 +235,32 @@ function saveData() {
     }
 }
 
-// Dynamic rendering of Header active role select dropdown
+// Dynamic rendering of Header active role select dropdown (gizli, sadece JS için)
 function renderRoleSwitcher() {
     const select = document.getElementById("roleSelect");
     if (!select) return;
-    
-    const current = state.activeUser;
+
     select.innerHTML = `<option value="Patron">Patron (Yönetici)</option>`;
-    
     state.employees.forEach(emp => {
         select.innerHTML += `<option value="${escapeHTML(emp.name)}">${escapeHTML(emp.name)} (Çalışan - ${escapeHTML(emp.role)})</option>`;
     });
-    
-    // Check if current user role still exists
-    const exists = current === "Patron" || state.employees.some(e => e.name === current);
-    if (exists) {
-        select.value = current;
-    } else {
-        select.value = "Patron";
-        state.activeUser = "Patron";
-        localStorage.setItem("flowdesk_active_user", "Patron");
-    }
+
+    // state.activeUser'a dokunma — sadece select'i mevcut değere set et
+    select.value = state.activeUser;
 }
 
 // Dynamic rendering of Employee multi-select chips inside Group creation modal
 function renderEmployeeChips() {
     const grid = document.getElementById("employeeSelectGrid");
     if (!grid) return;
-    
+
     grid.innerHTML = "";
     state.employees.forEach(emp => {
         const chip = document.createElement("div");
         chip.className = "employee-chip";
         chip.setAttribute("data-user", emp.name);
         chip.onclick = () => toggleEmployeeChip(chip);
-        
+
         chip.innerHTML = `
             <div class="employee-chip-avatar avatar-bg-${emp.color}">${escapeHTML(emp.name.charAt(0))}</div>
             <div class="employee-chip-name">${escapeHTML(emp.name)} (${escapeHTML(emp.role)})</div>
@@ -322,14 +273,14 @@ function renderEmployeeChips() {
 function changeUserRole(role) {
     state.activeUser = role;
     localStorage.setItem("flowdesk_active_user", role);
-    
+
     const visibleGroups = getVisibleGroups();
     const hasPermission = visibleGroups.some(g => g.id === state.activeGroupId);
-    
+
     if (!hasPermission) {
         state.activeGroupId = visibleGroups.length > 0 ? visibleGroups[0].id : null;
     }
-    
+
     renderApp();
     showToast(`Aktif Kullanıcı Rolü Değiştirildi: '${role}'`);
 }
@@ -339,8 +290,8 @@ function getVisibleGroups() {
     if (state.activeUser === "Patron") {
         return state.groups;
     }
-    return state.groups.filter(g => 
-        (g.members && g.members.includes(state.activeUser)) || 
+    return state.groups.filter(g =>
+        (g.members && g.members.includes(state.activeUser)) ||
         (g.observers && g.observers.includes(state.activeUser))
     );
 }
@@ -356,16 +307,16 @@ function renderApp() {
 function renderSidebar() {
     const adminPanelBtnContainer = document.getElementById("adminPanelBtnContainer");
     const groupsList = document.getElementById("groupsList");
-    
+
     if (state.activeUser === "Patron") {
         adminPanelBtnContainer.style.display = "flex";
     } else {
         adminPanelBtnContainer.style.display = "none";
     }
-    
+
     groupsList.innerHTML = "";
     const visibleGroups = getVisibleGroups();
-    
+
     if (visibleGroups.length === 0) {
         groupsList.innerHTML = `
             <div style="text-align: center; color: var(--text-muted); padding: 20px; font-size: 13px;">
@@ -373,38 +324,38 @@ function renderSidebar() {
             </div>`;
         return;
     }
-    
+
     visibleGroups.forEach(group => {
         const completedTasksCount = group.tasks.filter(t => t.completed).length;
         const totalTasksCount = group.tasks.length;
         const percentage = totalTasksCount > 0 ? Math.round((completedTasksCount / totalTasksCount) * 100) : 0;
         const isGroupCompleted = totalTasksCount > 0 && completedTasksCount === totalTasksCount;
-        
+
         const groupItem = document.createElement("div");
         groupItem.className = `group-item ${group.id === state.activeGroupId ? 'active' : ''} ${isGroupCompleted ? 'group-completed' : ''}`;
         groupItem.onclick = () => selectGroup(group.id);
-        
+
         let membersAvatarsHTML = "";
-        
+
         // Render Standard Members
         if (group.members) {
             group.members.forEach(member => {
                 const initial = member.charAt(0);
                 const isBoss = member === "Patron";
-                
+
                 let colorNum = "1";
                 if (!isBoss) {
                     const empObj = state.employees.find(e => e.name === member);
                     if (empObj) colorNum = empObj.color;
                 }
-                
+
                 membersAvatarsHTML += `
                     <div class="member-avatar ${isBoss ? 'boss-avatar' : 'avatar-bg-' + colorNum}" title="${escapeHTML(member)}">
                         ${escapeHTML(initial)}
                     </div>`;
             });
         }
-        
+
         // Render Observers (dashed circle styling)
         if (group.observers) {
             group.observers.forEach(obs => {
@@ -415,7 +366,7 @@ function renderSidebar() {
                     </div>`;
             });
         }
-        
+
         // Countdown text calculation
         let countdownHTML = "";
         if (group.deadline) {
@@ -427,7 +378,7 @@ function renderSidebar() {
                     </div>`;
             }
         }
-        
+
         // Check if active user is an observer here
         const isUserObserver = group.observers && group.observers.includes(state.activeUser);
         let roleLabel;
@@ -438,7 +389,7 @@ function renderSidebar() {
         } else {
             roleLabel = `<span class="group-badge">${totalTasksCount} Görev</span>`;
         }
-        
+
         groupItem.innerHTML = `
             <div class="group-header">
                 <span class="group-name">${escapeHTML(group.name)}</span>
@@ -464,15 +415,15 @@ function renderSidebar() {
 function selectGroup(groupId) {
     const group = state.groups.find(g => g.id === groupId);
     if (!group) return;
-    
+
     const isMember = group.members && group.members.includes(state.activeUser);
     const isObs = group.observers && group.observers.includes(state.activeUser);
-    
+
     if (state.activeUser !== "Patron" && !isMember && !isObs) {
         showToast("Hata: Bu gruba erişim yetkiniz bulunmamaktadır!");
         return;
     }
-    
+
     state.activeGroupId = groupId;
     renderApp();
 }
@@ -481,42 +432,42 @@ function selectGroup(groupId) {
 function renderChatArea() {
     const chatActiveState = document.getElementById("chatActiveState");
     const chatEmptyState = document.getElementById("chatEmptyState");
-    
+
     if (!state.activeGroupId) {
         chatActiveState.style.display = "none";
         chatEmptyState.style.display = "flex";
         return;
     }
-    
+
     const group = state.groups.find(g => g.id === state.activeGroupId);
     if (!group) {
         chatActiveState.style.display = "none";
         chatEmptyState.style.display = "flex";
         return;
     }
-    
+
     const isMember = group.members && group.members.includes(state.activeUser);
     const isObs = group.observers && group.observers.includes(state.activeUser);
-    
+
     if (state.activeUser !== "Patron" && !isMember && !isObs) {
         chatActiveState.style.display = "none";
         chatEmptyState.style.display = "flex";
         state.activeGroupId = null;
         return;
     }
-    
+
     chatActiveState.style.display = "flex";
     chatEmptyState.style.display = "none";
-    
+
     // Header Info
     const activeChatTitle = document.getElementById("activeChatTitle");
     const activeChatSubtitle = document.getElementById("activeChatSubtitle");
     const activeChatDeadline = document.getElementById("activeChatDeadline");
     const generateObserverCodeBtn = document.getElementById("generateObserverCodeBtn");
     const addObserverBtn = document.getElementById("addObserverBtn");
-    
+
     activeChatTitle.innerText = group.name;
-    
+
     // Observer Buttons Visibility (Patron only)
     if (state.activeUser === "Patron") {
         generateObserverCodeBtn.style.display = "block";
@@ -525,7 +476,7 @@ function renderChatArea() {
         generateObserverCodeBtn.style.display = "none";
         addObserverBtn.style.display = "none";
     }
-    
+
     // Deadline Countdown Display
     if (group.deadline) {
         const timeInfo = getCountdownText(group.deadline);
@@ -539,15 +490,15 @@ function renderChatArea() {
     } else {
         activeChatDeadline.style.display = "none";
     }
-    
+
     const staffMembers = group.members.filter(m => m !== "Patron");
     const observersText = group.observers && group.observers.length > 0 ? ` | Gözlemciler: ${group.observers.join(", ")}` : "";
     activeChatSubtitle.innerText = `Üyeler: Patron ve ${staffMembers.join(", ")}${observersText}`;
-    
+
     // Observer Privileges Block: Toggle Input Area
     const chatInputArea = document.getElementById("chatInputArea");
     const chatObserverBanner = document.getElementById("chatObserverBanner");
-    
+
     if (isObs) {
         // Observers are locked in read-only mode
         chatInputArea.style.display = "none";
@@ -557,11 +508,11 @@ function renderChatArea() {
         chatInputArea.style.display = "flex";
         chatObserverBanner.style.display = "none";
     }
-    
+
     // Populate Messages
     const chatMessages = document.getElementById("chatMessages");
     chatMessages.innerHTML = "";
-    
+
     if (group.messages && group.messages.length > 0) {
         group.messages.forEach(msg => {
             if (msg.isSystem) {
@@ -572,16 +523,16 @@ function renderChatArea() {
             } else {
                 const isOutgoing = msg.sender === state.activeUser;
                 const initial = msg.sender.charAt(0);
-                
+
                 const msgWrapper = document.createElement("div");
                 msgWrapper.className = `message-wrapper ${isOutgoing ? 'outgoing' : 'incoming'}`;
-                
+
                 let avatarClass = "boss-avatar";
                 if (msg.sender !== "Patron") {
                     const empObj = state.employees.find(e => e.name === msg.sender);
                     avatarClass = "avatar-bg-" + (empObj ? empObj.color : "1");
                 }
-                
+
                 msgWrapper.innerHTML = `
                     <div class="message-avatar ${avatarClass}" title="${escapeHTML(msg.sender)}">${escapeHTML(initial)}</div>
                     <div class="message-content-box">
@@ -594,7 +545,7 @@ function renderChatArea() {
             }
         });
     }
-    
+
     chatMessages.scrollTop = chatMessages.scrollHeight;
 }
 
@@ -602,46 +553,46 @@ function renderChatArea() {
 function renderTasksPanel() {
     const tasksPanelContent = document.getElementById("tasksPanelContent");
     const tasksPanelEmpty = document.getElementById("tasksPanelEmpty");
-    
+
     if (!state.activeGroupId) {
         tasksPanelContent.style.display = "none";
         tasksPanelEmpty.style.display = "flex";
         return;
     }
-    
+
     const group = state.groups.find(g => g.id === state.activeGroupId);
     if (!group) {
         tasksPanelContent.style.display = "none";
         tasksPanelEmpty.style.display = "flex";
         return;
     }
-    
+
     tasksPanelContent.style.display = "flex";
     tasksPanelEmpty.style.display = "none";
-    
+
     const total = group.tasks.length;
     const completed = group.tasks.filter(t => t.completed).length;
     const percentage = total > 0 ? Math.round((completed / total) * 100) : 0;
-    
+
     document.getElementById("tasksSummaryCount").innerText = `${completed}/${total}`;
     document.getElementById("tasksProgressBar").style.width = `${percentage}%`;
-    
+
     const tasksList = document.getElementById("tasksList");
     tasksList.innerHTML = "";
-    
+
     // Observers cannot check off tasks (Read-Only)
     const isObserver = group.observers && group.observers.includes(state.activeUser);
     const hasPermission = group.members.includes(state.activeUser) && !isObserver;
-    
+
     group.tasks.forEach(task => {
         const card = document.createElement("div");
         card.className = `task-card ${task.completed ? 'completed' : ''}`;
-        
+
         let metaText = "Bekliyor";
         if (task.completed) {
             metaText = `✓ <span class="task-completed-by">${escapeHTML(task.completedBy)}</span> tamamladı`;
         }
-        
+
         card.innerHTML = `
             <label class="checkbox-container">
                 <input type="checkbox" ${task.completed ? 'checked' : ''} 
@@ -665,21 +616,21 @@ function renderTasksPanel() {
 function toggleTaskStatus(groupId, taskId, isChecked) {
     const group = state.groups.find(g => g.id === groupId);
     if (!group) return;
-    
+
     // If group is already completed, prevent unchecking
     const allDoneBefore = group.tasks.every(t => t.completed);
-    
+
     const task = group.tasks.find(t => t.id === taskId);
     if (!task) return;
-    
+
     const previousCompleted = task.completed;
     task.completed = isChecked;
     task.completedBy = isChecked ? state.activeUser : null;
-    
+
     if (previousCompleted !== isChecked) {
         const timeNow = getFormattedTime();
         let logText = "";
-        
+
         if (isChecked) {
             logText = `${state.activeUser}, '${task.title}' görevini tamamladı! ✅`;
             showToast(`Görev tamamlandı: ${task.title}`);
@@ -687,14 +638,14 @@ function toggleTaskStatus(groupId, taskId, isChecked) {
             logText = `${state.activeUser}, '${task.title}' görevinin işaretini kaldırdı. ⚠️`;
             showToast(`Görev geri alındı: ${task.title}`);
         }
-        
+
         group.messages.push({
             sender: "Sistem",
             text: logText,
             time: timeNow,
             isSystem: true
         });
-        
+
         // Check if ALL tasks are now completed -> auto-close the group
         const allDoneNow = group.tasks.every(t => t.completed);
         if (allDoneNow && !allDoneBefore) {
@@ -706,7 +657,7 @@ function toggleTaskStatus(groupId, taskId, isChecked) {
             });
             showToast(`🎉 Tüm görevler tamamlandı! '${group.name}' projesi kapandı.`);
         }
-        
+
         updateGroupInDB(group);
     }
 }
@@ -722,19 +673,19 @@ function sendMessage() {
     const input = document.getElementById("chatInput");
     const text = input.value.trim();
     if (!text || !state.activeGroupId) return;
-    
+
     const group = state.groups.find(g => g.id === state.activeGroupId);
     if (!group) return;
-    
+
     group.messages.push({
         sender: state.activeUser,
         text: text,
         time: getFormattedTime(),
         isSystem: false
     });
-    
+
     input.value = "";
-    
+
     updateGroupInDB(group);
 }
 
@@ -761,13 +712,13 @@ function openCreateGroupModal() {
         showToast("Hata: Sadece Patron yeni görev atayabilir.");
         return;
     }
-    
+
     document.getElementById("groupNameInput").value = "";
     document.getElementById("groupDeadlineInput").value = "";
-    
+
     const chips = document.querySelectorAll(".employee-chip");
     chips.forEach(c => c.classList.remove("selected"));
-    
+
     const builder = document.getElementById("modalTasksBuilder");
     builder.innerHTML = `
         <div class="task-builder-item">
@@ -783,7 +734,7 @@ function openCreateGroupModal() {
             <button class="btn-remove-task" onclick="removeTaskBuilderItem(this)">&times;</button>
         </div>
     `;
-    
+
     document.getElementById("createGroupModal").classList.add("active");
 }
 
@@ -798,7 +749,7 @@ function toggleEmployeeChip(chip) {
 function addTaskBuilderItem() {
     const builder = document.getElementById("modalTasksBuilder");
     const count = builder.children.length + 1;
-    
+
     const div = document.createElement("div");
     div.className = "task-builder-item";
     div.innerHTML = `
@@ -821,27 +772,27 @@ function removeTaskBuilderItem(btn) {
 function submitNewGroup() {
     const groupName = document.getElementById("groupNameInput").value.trim();
     const deadlineVal = document.getElementById("groupDeadlineInput").value;
-    
+
     if (!groupName) {
         showToast("Hata: Lütfen sohbet grubu adı girin.");
         return;
     }
-    
+
     const selectedChips = document.querySelectorAll(".employee-chip.selected");
     const members = ["Patron"];
     selectedChips.forEach(chip => {
         members.push(chip.getAttribute("data-user"));
     });
-    
+
     if (members.length === 1) {
         showToast("Hata: Lütfen atayacağınız en az 1 eleman seçin.");
         return;
     }
-    
+
     const taskInputs = document.querySelectorAll(".task-builder-input");
     const tasks = [];
     let taskCounter = 1;
-    
+
     taskInputs.forEach(input => {
         const title = input.value.trim();
         if (title) {
@@ -853,16 +804,16 @@ function submitNewGroup() {
             });
         }
     });
-    
+
     if (tasks.length === 0) {
         showToast("Hata: Lütfen en az 1 görev yazın.");
         return;
     }
-    
+
     const timeNow = getFormattedTime();
     const staffText = members.filter(m => m !== 'Patron').join(', ');
     const deadlineDisplay = deadlineVal ? ` | Bitiş Tarihi: ${deadlineVal}` : "";
-    
+
     const newGroup = {
         name: groupName,
         members: members,
@@ -891,9 +842,9 @@ function submitNewGroup() {
         ],
         createdAt: Date.now()
     };
-    
+
     const groupId = `group_${Date.now()}`;
-    
+
     if (isFirebaseConnected) {
         db.collection("saas_groups").doc(groupId).set(newGroup)
             .then(() => {
@@ -909,7 +860,7 @@ function submitNewGroup() {
         newGroup.id = groupId;
         state.groups.unshift(newGroup);
         state.activeGroupId = groupId;
-        
+
         saveData();
         closeCreateGroupModal();
         renderApp();
@@ -925,18 +876,23 @@ function openCreateEmployeeModal() {
     }
     document.getElementById("employeeNameInput").value = "";
     document.getElementById("employeeRoleInput").value = "";
+    const passEl = document.getElementById("employeePassInput");
+    if (passEl) passEl.value = "";
     document.getElementById("createEmployeeModal").classList.add("active");
 }
 
 function closeCreateEmployeeModal() {
     document.getElementById("createEmployeeModal").classList.remove("active");
+    const passEl = document.getElementById("employeePassInput");
+    if (passEl) passEl.value = "";
 }
 
 // Submit newly registered employee
 function submitNewEmployee() {
     const name = document.getElementById("employeeNameInput").value.trim();
     const role = document.getElementById("employeeRoleInput").value.trim();
-    
+    const pass = document.getElementById("employeePassInput") ? document.getElementById("employeePassInput").value.trim() : "";
+
     if (!name) {
         showToast("Hata: Lütfen eleman adı girin.");
         return;
@@ -945,13 +901,17 @@ function submitNewEmployee() {
         showToast("Hata: Lütfen elemanın uzmanlık alanını / rolünü girin.");
         return;
     }
-    
+    if (!pass) {
+        showToast("Hata: Lütfen personel için bir giriş şifresi belirleyin.");
+        return;
+    }
+
     const duplicate = name.toLowerCase() === "patron" || state.employees.some(e => e.name.toLowerCase() === name.toLowerCase());
     if (duplicate) {
         showToast("Hata: Bu isimde bir çalışan zaten kayıtlı!");
         return;
     }
-    
+
     const colorRadios = document.getElementsByName("avatarColor");
     let colorVal = "1";
     for (let i = 0; i < colorRadios.length; i++) {
@@ -960,14 +920,28 @@ function submitNewEmployee() {
             break;
         }
     }
-    
+
     const newEmp = {
         name: name,
         role: role,
         color: colorVal,
+        password: pass,
         createdAt: Date.now()
     };
-    
+
+    // Şifreyi fd_companies içindeki tenant'a da kaydet
+    const session = JSON.parse(localStorage.getItem("flowdesk_session") || "{}");
+    if (session.tenant) {
+        const companies = JSON.parse(localStorage.getItem("fd_companies") || "{}");
+        if (companies[session.tenant]) {
+            if (!companies[session.tenant].empPasswords) {
+                companies[session.tenant].empPasswords = {};
+            }
+            companies[session.tenant].empPasswords[name.toLowerCase()] = pass;
+            localStorage.setItem("fd_companies", JSON.stringify(companies));
+        }
+    }
+
     if (isFirebaseConnected) {
         db.collection("saas_employees").doc(name).set(newEmp)
             .then(() => {
@@ -981,13 +955,13 @@ function submitNewEmployee() {
     } else {
         state.employees.push(newEmp);
         saveData();
-        
+
         renderRoleSwitcher();
         renderEmployeeChips();
         renderApp();
-        
+
         closeCreateEmployeeModal();
-        showToast(`"${name}" adlı çalışan (Simülasyon) başarıyla kaydedildi!`);
+        showToast(`"${name}" adlı çalışan başarıyla kaydedildi! Şifresi belirlendi.`);
     }
 }
 
@@ -1007,7 +981,7 @@ function decryptGroupInvitation(code) {
         if (decoded.startsWith("FLOWDESK-INV-")) {
             return decoded.replace("FLOWDESK-INV-", "");
         }
-    } catch(e) {}
+    } catch (e) { }
     return null;
 }
 
@@ -1015,7 +989,7 @@ function decryptGroupInvitation(code) {
 function generateObserverCode() {
     if (!state.activeGroupId) return;
     const code = encryptGroupInvitation(state.activeGroupId);
-    
+
     navigator.clipboard.writeText(code).then(() => {
         showToast("🔑 Gözlemci Davet Kodu panoya kopyalandı! Bu şifreli kodu denetçiye gönderebilirsiniz.");
     }).catch(err => {
@@ -1033,21 +1007,21 @@ function openAddObserverModal() {
         showToast("Hata: Lütfen önce bir sohbet grubu seçin.");
         return;
     }
-    
+
     const group = state.groups.find(g => g.id === state.activeGroupId);
     if (!group) return;
-    
+
     const grid = document.getElementById("observerSelectGrid");
     const noMsg = document.getElementById("noObserverCandidates");
     grid.innerHTML = "";
-    
+
     // Filter: show employees who are NOT members and NOT already observers
     const candidates = state.employees.filter(emp => {
         const isMember = group.members && group.members.includes(emp.name);
         const isObserver = group.observers && group.observers.includes(emp.name);
         return !isMember && !isObserver;
     });
-    
+
     if (candidates.length === 0) {
         noMsg.style.display = "block";
     } else {
@@ -1064,7 +1038,7 @@ function openAddObserverModal() {
             grid.appendChild(chip);
         });
     }
-    
+
     document.getElementById("addObserverModal").classList.add("active");
 }
 
@@ -1076,26 +1050,26 @@ function closeAddObserverModal() {
 function submitAddObserver() {
     const group = state.groups.find(g => g.id === state.activeGroupId);
     if (!group) return;
-    
+
     const selectedChips = document.querySelectorAll("#observerSelectGrid .employee-chip.selected");
     if (selectedChips.length === 0) {
         showToast("Hata: Lütfen en az 1 kişi seçin.");
         return;
     }
-    
+
     if (!group.observers) {
         group.observers = [];
     }
-    
+
     const timeNow = getFormattedTime();
     const addedNames = [];
-    
+
     selectedChips.forEach(chip => {
         const name = chip.getAttribute("data-user");
         if (!group.observers.includes(name)) {
             group.observers.push(name);
             addedNames.push(name);
-            
+
             group.messages.push({
                 sender: "Sistem",
                 text: `Patron, ${name} kişisini bu projeye GÖZLEMCİ 👁️ olarak ekledi.`,
@@ -1104,7 +1078,7 @@ function submitAddObserver() {
             });
         }
     });
-    
+
     if (addedNames.length > 0) {
         updateGroupInDB(group);
         closeAddObserverModal();
@@ -1123,29 +1097,29 @@ function joinAsObserver() {
         showToast("Lütfen şifreli bir davet kodu girin.");
         return;
     }
-    
+
     const groupId = decryptGroupInvitation(code);
     if (!groupId) {
         showToast("Hata: Geçersiz veya şifresi çözülemeyen davet kodu!");
         return;
     }
-    
+
     const group = state.groups.find(g => g.id === groupId);
     if (!group) {
         showToast("Hata: Bu davet koduna ait bir sohbet grubu bulunamadı!");
         return;
     }
-    
+
     // Check if user is already a standard member
     if (group.members && group.members.includes(state.activeUser)) {
         showToast("Hata: Zaten bu projenin asil üyesisiniz. Gözlemci olamazsınız.");
         return;
     }
-    
+
     if (!group.observers) {
         group.observers = [];
     }
-    
+
     // Check if already registered as observer
     if (group.observers.includes(state.activeUser)) {
         showToast("Zaten bu projeyi gözlemliyorsunuz.");
@@ -1154,10 +1128,10 @@ function joinAsObserver() {
         input.value = "";
         return;
     }
-    
+
     // Add to observer pool
     group.observers.push(state.activeUser);
-    
+
     const timeNow = getFormattedTime();
     group.messages.push({
         sender: "Sistem",
@@ -1165,9 +1139,9 @@ function joinAsObserver() {
         time: timeNow,
         isSystem: true
     });
-    
+
     updateGroupInDB(group);
-    
+
     state.activeGroupId = groupId;
     renderApp();
     input.value = "";
@@ -1179,17 +1153,17 @@ function getCountdownText(deadlineStr) {
     if (!deadlineStr) return null;
     const deadline = new Date(deadlineStr);
     deadline.setHours(23, 59, 59, 999); // Set to end of day
-    
+
     const now = new Date();
     const diff = deadline - now;
-    
+
     if (diff < 0) {
         return { text: "Süre Doldu!", class: "danger-time" };
     }
-    
+
     const diffDays = Math.floor(diff / (1000 * 60 * 60 * 24));
     const diffHours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-    
+
     if (diffDays > 3) {
         return { text: `⏳ Kalan: ${diffDays} gün`, class: "active-time" };
     } else if (diffDays >= 1) {
@@ -1205,10 +1179,10 @@ function getCountdownText(deadlineStr) {
 function showToast(message) {
     const toast = document.getElementById("toastNotification");
     const toastMsg = document.getElementById("toastMessage");
-    
+
     toastMsg.innerText = message;
     toast.classList.add("active");
-    
+
     setTimeout(() => {
         toast.classList.remove("active");
     }, 4000);
@@ -1225,7 +1199,7 @@ function getFormattedTime() {
 // HTML escape
 function escapeHTML(str) {
     if (!str) return '';
-    return str.replace(/[&<>'"]/g, 
+    return str.replace(/[&<>'"]/g,
         tag => ({
             '&': '&amp;',
             '<': '&lt;',
@@ -1235,3 +1209,216 @@ function escapeHTML(str) {
         }[tag] || tag)
     );
 }
+
+// ====================================================================
+//                    LOGIN / SESSION SİSTEMİ
+// ====================================================================
+
+// Tenant ID üretici
+function lcGenTenant() {
+    const chars = 'abcdefghjkmnpqrstuvwxyz23456789';
+    let c = 'fd-';
+    for (let i = 0; i < 4; i++) c += chars[Math.floor(Math.random() * chars.length)];
+    return c;
+}
+
+function lcRegenTenant() {
+    const el = document.getElementById('lc-reg-tid');
+    if (el) el.value = lcGenTenant();
+    const w = document.getElementById('lc-reg-warn');
+    if (w) w.classList.remove('on');
+}
+
+// Tab değiştir
+function lcTab(t) {
+    ['emp', 'boss', 'reg'].forEach(id => {
+        document.getElementById('lct-' + id).classList.remove('on');
+        document.getElementById('lcp-' + id).classList.remove('on');
+    });
+    document.getElementById('lct-' + t).classList.add('on');
+    document.getElementById('lcp-' + t).classList.add('on');
+    // hataları temizle
+    document.querySelectorAll('.lc-err').forEach(e => e.classList.remove('on'));
+}
+
+function lcErr(id, msg) {
+    const el = document.getElementById(id);
+    el.innerText = msg;
+    el.classList.add('on');
+}
+
+function lcToast(msg) {
+    const t = document.getElementById('lc-toast');
+    t.innerText = msg;
+    t.classList.add('on');
+    setTimeout(() => t.classList.remove('on'), 3500);
+}
+
+// Overlay'i kapat (giriş başarılı)
+function lcClose() {
+    const ov = document.getElementById('loginOverlay');
+    if (ov) {
+        ov.style.opacity = '0';
+        ov.style.transition = 'opacity 0.5s ease';
+        setTimeout(() => ov.style.display = 'none', 500);
+    }
+    // Kullanıcı adını header'da göster
+    lcUpdateHeaderLabel();
+}
+
+function lcUpdateHeaderLabel() {
+    const session = JSON.parse(localStorage.getItem('flowdesk_session') || '{}');
+    const label = document.getElementById('activeUserLabel');
+    if (!label || !session.name) return;
+    const roleText = session.role === 'boss' ? 'Patron' : 'Personel';
+    label.innerText = session.name + ' (' + roleText + ')';
+}
+
+// Personel Girişi
+function lcLoginEmp() {
+    const tenant = document.getElementById('lc-emp-tenant').value.trim();
+    const name = document.getElementById('lc-emp-name').value.trim();
+    const pass = document.getElementById('lc-emp-pass').value.trim();
+    const errId = 'lc-emp-err';
+
+    document.getElementById(errId).classList.remove('on');
+
+    if (!tenant || !name || !pass) { lcErr(errId, '❌ Lütfen tüm alanları doldurun.'); return; }
+
+    const companies = JSON.parse(localStorage.getItem('fd_companies') || '{}');
+    if (!companies[tenant]) { lcErr(errId, '❌ Bu şirket kodu sistemde kayıtlı değil.'); return; }
+
+    const td = companies[tenant];
+    const empPasswords = td.empPasswords || {};
+    const nameLower = name.toLowerCase();
+
+    // Önce fd_companies içindeki empPasswords'a bak (en güvenilir kaynak)
+    if (empPasswords[nameLower] !== undefined) {
+        if (pass !== empPasswords[nameLower]) {
+            lcErr(errId, '❌ Şifre hatalı. Patronunuzdan aldığınız şifreyi girin.');
+            return;
+        }
+    } else {
+        // empPasswords'da yoksa flowdesk_employees içinde ara (fallback)
+        const empList = JSON.parse(localStorage.getItem('flowdesk_employees') || '[]');
+        const emp = empList.find(e => e.name.toLowerCase() === nameLower);
+        if (!emp) {
+            lcErr(errId, '❌ Bu isimde personel kayıtlı değil. Patronunuza başvurun.');
+            return;
+        }
+        if (!emp.password || pass !== emp.password) {
+            lcErr(errId, '❌ Şifre hatalı. Patronunuzdan aldığınız şifreyi girin.');
+            return;
+        }
+    }
+
+    // Gerçek adı bul (büyük/küçük harf için flowdesk_employees'dan al)
+    const empList2 = JSON.parse(localStorage.getItem('flowdesk_employees') || '[]');
+    const empObj = empList2.find(e => e.name.toLowerCase() === nameLower);
+    const realName = empObj ? empObj.name : name;
+
+    // Başarılı
+    localStorage.setItem('flowdesk_active_user', realName);
+    localStorage.setItem('flowdesk_session', JSON.stringify({ role: 'employee', name: realName, tenant }));
+    lcToast('✅ Giriş başarılı! Hoş geldin, ' + realName);
+    setTimeout(lcClose, 1000);
+}
+
+// Patron Girişi
+function lcLoginBoss() {
+    const tenant = document.getElementById('lc-boss-tenant').value.trim();
+    const pass = document.getElementById('lc-boss-pass').value.trim();
+    const errId = 'lc-boss-err';
+
+    document.getElementById(errId).classList.remove('on');
+
+    if (!tenant || !pass) { lcErr(errId, '❌ Lütfen tüm alanları doldurun.'); return; }
+
+    const companies = JSON.parse(localStorage.getItem('fd_companies') || '{}');
+    if (!companies[tenant]) { lcErr(errId, '❌ Bu şirket kodu sistemde kayıtlı değil.'); return; }
+
+    if (pass !== companies[tenant].bossPass) { lcErr(errId, '❌ Patron şifresi yanlış.'); return; }
+
+    // Başarılı
+    localStorage.setItem('flowdesk_active_user', 'Patron');
+    localStorage.setItem('flowdesk_session', JSON.stringify({ role: 'boss', name: companies[tenant].ownerName, tenant }));
+    lcToast('✅ Patron girişi başarılı! Hoş geldin, ' + companies[tenant].ownerName);
+    setTimeout(lcClose, 1000);
+}
+
+// Şirket Kur
+function lcRegister() {
+    const company = document.getElementById('lc-reg-company').value.trim();
+    const owner = document.getElementById('lc-reg-owner').value.trim();
+    const pass = document.getElementById('lc-reg-pass').value.trim();
+    const tid = document.getElementById('lc-reg-tid').value.trim();
+    const errId = 'lc-reg-err';
+
+    document.getElementById(errId).classList.remove('on');
+
+    if (!company || !owner || !pass) { lcErr(errId, '❌ Lütfen tüm alanları doldurun.'); return; }
+    if (pass.length < 4) { lcErr(errId, '❌ Şifre en az 4 karakter olmalıdır.'); return; }
+
+    const companies = JSON.parse(localStorage.getItem('fd_companies') || '{}');
+    companies[tid] = { companyName: company, ownerName: owner, bossPass: pass, empPass: pass, createdAt: Date.now() };
+    localStorage.setItem('fd_companies', JSON.stringify(companies));
+
+    // Uyarı göster
+    document.getElementById('lc-reg-warn-code').innerText = tid;
+    document.getElementById('lc-reg-warn').classList.add('on');
+
+    lcToast('🏢 Şirket kaydedildi! Yönlendiriliyor...');
+
+    localStorage.setItem('flowdesk_active_user', 'Patron');
+    localStorage.setItem('flowdesk_session', JSON.stringify({ role: 'boss', name: owner, tenant: tid }));
+
+    setTimeout(lcClose, 3000);
+}
+
+// Çıkış
+function lcLogout() {
+    if (!confirm('Oturumu kapatmak istediğinize emin misiniz?')) return;
+    localStorage.removeItem('flowdesk_session');
+    localStorage.removeItem('flowdesk_active_user');
+    // Overlay'i tekrar göster
+    const ov = document.getElementById('loginOverlay');
+    if (ov) {
+        ov.style.display = 'flex';
+        ov.style.opacity = '1';
+        ov.style.transition = '';
+        // input'ları temizle
+        ['lc-emp-tenant', 'lc-emp-name', 'lc-emp-pass', 'lc-boss-tenant', 'lc-boss-pass'].forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.value = '';
+        });
+        document.querySelectorAll('.lc-err').forEach(e => e.classList.remove('on'));
+        lcTab('emp');
+    }
+}
+
+// Sayfa yüklenince: oturum varsa overlay kapat, yoksa göster
+window.addEventListener('DOMContentLoaded', function () {
+    // Tenant ID input başlat
+    const tidEl = document.getElementById('lc-reg-tid');
+    if (tidEl) tidEl.value = lcGenTenant();
+
+    const session = localStorage.getItem('flowdesk_session');
+    if (session) {
+        // Oturum var — overlay'i gösterme
+        lcClose();
+        lcUpdateHeaderLabel();
+    }
+    // Oturum yoksa overlay zaten görünür (varsayılan display:flex)
+
+    // Enter tuşu desteği
+    document.addEventListener('keydown', function (e) {
+        if (e.key !== 'Enter') return;
+        const ov = document.getElementById('loginOverlay');
+        if (!ov || ov.style.display === 'none') return;
+        const active = document.querySelector('.lc-panel.on');
+        if (!active) return;
+        if (active.id === 'lcp-emp') lcLoginEmp();
+        else if (active.id === 'lcp-boss') lcLoginBoss();
+        else if (active.id === 'lcp-reg') lcRegister();
+    });
+});

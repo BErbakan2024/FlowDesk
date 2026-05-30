@@ -28,7 +28,7 @@
 
 body {
     background-color: var(--bg-main);
-    background-image: 
+    background-image:
         radial-gradient(at 0% 0%, rgba(99, 102, 241, 0.15) 0px, transparent 50%),
         radial-gradient(at 100% 100%, rgba(6, 182, 212, 0.15) 0px, transparent 50%);
     background-attachment: fixed;
@@ -398,7 +398,7 @@ main {
     font-size: 13px;
     color: white;
     flex-shrink: 0;
-    box-shadow: 0 4px 10px rgba(0,0,0,0.15);
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.15);
 }
 
 .message-content-box {
@@ -426,7 +426,7 @@ main {
     font-size: 14px;
     line-height: 1.5;
     word-break: break-word;
-    box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
 }
 
 .message-wrapper.incoming .message-bubble {
@@ -469,8 +469,15 @@ main {
 }
 
 @keyframes fadeIn {
-    from { opacity: 0; transform: translateY(5px); }
-    to { opacity: 1; transform: translateY(0); }
+    from {
+        opacity: 0;
+        transform: translateY(5px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
 }
 
 /* Chat Input Bar */
@@ -549,8 +556,15 @@ main {
 }
 
 @keyframes float {
-    0%, 100% { transform: translateY(0); }
-    50% { transform: translateY(-10px); }
+
+    0%,
+    100% {
+        transform: translateY(0);
+    }
+
+    50% {
+        transform: translateY(-10px);
+    }
 }
 
 .empty-title {
@@ -664,12 +678,12 @@ main {
     transition: var(--transition);
 }
 
-.checkbox-container:hover input ~ .checkmark {
+.checkbox-container:hover input~.checkmark {
     background-color: rgba(255, 255, 255, 0.1);
     border-color: var(--primary);
 }
 
-.checkbox-container input:checked ~ .checkmark {
+.checkbox-container input:checked~.checkmark {
     background-image: var(--secondary-gradient);
     border-color: transparent;
     box-shadow: 0 0 10px rgba(6, 182, 212, 0.4);
@@ -681,7 +695,7 @@ main {
     display: none;
 }
 
-.checkbox-container input:checked ~ .checkmark:after {
+.checkbox-container input:checked~.checkmark:after {
     display: block;
 }
 
@@ -985,12 +999,14 @@ main {
     transition: var(--transition);
     animation: pulse-glow 2s infinite ease-in-out;
 }
+
 .connection-status.offline-mode {
     background: rgba(245, 158, 11, 0.1);
     border: 1px solid rgba(245, 158, 11, 0.3);
     color: var(--accent-warning);
     box-shadow: 0 0 10px rgba(245, 158, 11, 0.05);
 }
+
 .connection-status.online-mode {
     background: rgba(16, 185, 129, 0.1);
     border: 1px solid rgba(16, 185, 129, 0.3);
@@ -999,42 +1015,73 @@ main {
 }
 
 @keyframes pulse-glow {
-    0%, 100% { opacity: 0.9; }
-    50% { opacity: 0.6; }
+
+    0%,
+    100% {
+        opacity: 0.9;
+    }
+
+    50% {
+        opacity: 0.6;
+    }
 }
 
 /* Custom avatars color map */
-.avatar-bg-1 { background-color: #3b82f6; }
-.avatar-bg-2 { background-color: #10b981; }
-.avatar-bg-3 { background-color: #f59e0b; }
-.avatar-bg-4 { background-color: #ec4899; }
-.avatar-bg-5 { background-color: #8b5cf6; }
+.avatar-bg-1 {
+    background-color: #3b82f6;
+}
+
+.avatar-bg-2 {
+    background-color: #10b981;
+}
+
+.avatar-bg-3 {
+    background-color: #f59e0b;
+}
+
+.avatar-bg-4 {
+    background-color: #ec4899;
+}
+
+.avatar-bg-5 {
+    background-color: #8b5cf6;
+}
 
 /* Responsive adjustments */
 @media (max-width: 1024px) {
     .tasks-panel {
-        display: none; /* Can be toggled on mobile */
+        display: none;
+        /* Can be toggled on mobile */
     }
 }
+
 @media (max-width: 768px) {
     .sidebar {
         width: 80px;
         padding: 10px;
         align-items: center;
     }
-    .sidebar .section-title, .sidebar .btn-primary span, .sidebar .group-name, .sidebar .group-badge, .sidebar .group-progress {
+
+    .sidebar .section-title,
+    .sidebar .btn-primary span,
+    .sidebar .group-name,
+    .sidebar .group-badge,
+    .sidebar .group-progress {
         display: none;
     }
+
     .sidebar .btn-primary {
         width: 40px;
         height: 40px;
         padding: 0;
         border-radius: 50%;
     }
+
     .group-item {
         padding: 8px;
         align-items: center;
     }
+
     .group-members {
         margin-top: 0;
     }
@@ -1078,16 +1125,19 @@ main {
     align-items: center;
     gap: 4px;
 }
+
 .deadline-badge.active-time {
     background: rgba(16, 185, 129, 0.12);
     border: 1px solid rgba(16, 185, 129, 0.25);
     color: var(--accent-success);
 }
+
 .deadline-badge.warning-time {
     background: rgba(245, 158, 11, 0.12);
     border: 1px solid rgba(245, 158, 11, 0.25);
     color: var(--accent-warning);
 }
+
 .deadline-badge.danger-time {
     background: rgba(239, 68, 68, 0.12);
     border: 1px solid rgba(239, 68, 68, 0.25);
@@ -1115,5 +1165,3 @@ main {
     background: rgba(99, 102, 241, 0.3) !important;
     box-shadow: 0 0 5px rgba(99, 102, 241, 0.3);
 }
-
-

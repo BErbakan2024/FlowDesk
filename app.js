@@ -23,6 +23,13 @@ let db = null;
 let isFirebaseConnected = false;
 let broadcastChannel = null;
 
+// Tenant-scoped localStorage key üretici
+function getTenantKey(baseKey) {
+    const session = JSON.parse(localStorage.getItem('flowdesk_session') || '{}');
+    const tenant = session.tenant || 'default';
+    return baseKey + '_' + tenant;
+}
+
 // Initial Default Employees — boş başlar, patron ekler
 const DEFAULT_EMPLOYEES = [];
 
@@ -54,8 +61,8 @@ function initFirebaseOrSimulation() {
     const banner = document.getElementById("connectionBanner");
 
     const isFirebaseConfigured = firebaseConfig.apiKey &&
-        firebaseConfig.apiKey !== "BURAYA_API_KEY_YAZIN" &&
-        firebaseConfig.projectId !== "BURAYA_PROJECT_ID_YAZIN";
+        firebaseConfig.apiKey !== "AIzaSyBULevJdG_T3I_iCTKSlRTPVPSNCa1Un8I" &&
+        firebaseConfig.projectId !== "sirketicihaberlesme-647b7";
 
     if (isFirebaseConfigured) {
         try {
@@ -88,6 +95,11 @@ function initSimulationMode(banner) {
         broadcastChannel.onmessage = (event) => {
             if (event.data) {
                 if (event.data.type === "SYNC_STATE") {
+                    // Sadece aynı tenant'ın mesajlarını işle
+                    const session = JSON.parse(localStorage.getItem('flowdesk_session') || '{}');
+                    const myTenant = session.tenant || 'default';
+                    if (event.data.tenant && event.data.tenant !== myTenant) return;
+
                     state.groups = event.data.groups;
                     state.employees = event.data.employees;
 
@@ -110,21 +122,21 @@ function initSimulationMode(banner) {
     }
 
     // Load local storage groups
-    const savedGroups = localStorage.getItem("flowdesk_groups");
+    const savedGroups = localStorage.getItem(getTenantKey("flowdesk_groups"));
     if (savedGroups) {
         state.groups = JSON.parse(savedGroups);
     } else {
         state.groups = INITIAL_MOCK_DATA;
-        localStorage.setItem("flowdesk_groups", JSON.stringify(state.groups));
+        localStorage.setItem(getTenantKey("flowdesk_groups"), JSON.stringify(state.groups));
     }
 
     // Load local storage employees
-    const savedEmployees = localStorage.getItem("flowdesk_employees");
+    const savedEmployees = localStorage.getItem(getTenantKey("flowdesk_employees"));
     if (savedEmployees) {
         state.employees = JSON.parse(savedEmployees);
     } else {
         state.employees = DEFAULT_EMPLOYEES;
-        localStorage.setItem("flowdesk_employees", JSON.stringify(state.employees));
+        localStorage.setItem(getTenantKey("flowdesk_employees"), JSON.stringify(state.employees));
     }
 
     renderRoleSwitcher();
@@ -141,8 +153,13 @@ function initSimulationMode(banner) {
 
 // Listen to Firestore real-time snapshots
 function listenToFirestore() {
+    const session = JSON.parse(localStorage.getItem('flowdesk_session') || '{}');
+    const tenant = session.tenant || 'default';
+    const empCollection = `tenants/${tenant}/employees`;
+    const grpCollection = `tenants/${tenant}/groups`;
+
     // 1. Listen to Employees collection
-    db.collection("saas_employees")
+    db.collection(empCollection)
         .orderBy("createdAt", "asc")
         .onSnapshot((snapshot) => {
             let fetchedEmployees = [];
@@ -151,9 +168,8 @@ function listenToFirestore() {
             });
 
             if (fetchedEmployees.length === 0) {
-                // Populate default employees into Firestore if empty
                 DEFAULT_EMPLOYEES.forEach(emp => {
-                    db.collection("saas_employees").doc(emp.name).set(emp);
+                    db.collection(empCollection).doc(emp.name).set(emp);
                 });
             } else {
                 state.employees = fetchedEmployees;
@@ -166,7 +182,7 @@ function listenToFirestore() {
         });
 
     // 2. Listen to Groups collection
-    db.collection("saas_groups")
+    db.collection(grpCollection)
         .orderBy("createdAt", "desc")
         .onSnapshot((snapshot) => {
             const fetchedGroups = [];
@@ -179,11 +195,8 @@ function listenToFirestore() {
 
             state.groups = fetchedGroups;
 
-            // Access permission verification
             if (state.activeGroupId) {
                 const group = state.groups.find(g => g.id === state.activeGroupId);
-
-                // Allow view if standard member OR observer
                 const isMember = group && group.members && group.members.includes(state.activeUser);
                 const isObs = group && group.observers && group.observers.includes(state.activeUser);
 
@@ -222,14 +235,16 @@ function loadActiveUser() {
 // Save data locally (Sim mode)
 function saveData() {
     if (!isFirebaseConnected) {
-        localStorage.setItem("flowdesk_groups", JSON.stringify(state.groups));
-        localStorage.setItem("flowdesk_employees", JSON.stringify(state.employees));
+        localStorage.setItem(getTenantKey("flowdesk_groups"), JSON.stringify(state.groups));
+        localStorage.setItem(getTenantKey("flowdesk_employees"), JSON.stringify(state.employees));
 
         if (broadcastChannel) {
+            const session = JSON.parse(localStorage.getItem('flowdesk_session') || '{}');
             broadcastChannel.postMessage({
                 type: "SYNC_STATE",
                 groups: state.groups,
-                employees: state.employees
+                employees: state.employees,
+                tenant: session.tenant || 'default'
             });
         }
     }
@@ -692,7 +707,9 @@ function sendMessage() {
 // DB update orchestrator
 function updateGroupInDB(group) {
     if (isFirebaseConnected) {
-        db.collection("saas_groups").doc(group.id).update({
+        const session = JSON.parse(localStorage.getItem('flowdesk_session') || '{}');
+        const tenant = session.tenant || 'default';
+        db.collection(`tenants/${tenant}/groups`).doc(group.id).update({
             tasks: group.tasks,
             messages: group.messages,
             observers: group.observers || []
@@ -846,7 +863,9 @@ function submitNewGroup() {
     const groupId = `group_${Date.now()}`;
 
     if (isFirebaseConnected) {
-        db.collection("saas_groups").doc(groupId).set(newGroup)
+        const session = JSON.parse(localStorage.getItem('flowdesk_session') || '{}');
+        const tenant = session.tenant || 'default';
+        db.collection(`tenants/${tenant}/groups`).doc(groupId).set(newGroup)
             .then(() => {
                 state.activeGroupId = groupId;
                 closeCreateGroupModal();
@@ -943,7 +962,9 @@ function submitNewEmployee() {
     }
 
     if (isFirebaseConnected) {
-        db.collection("saas_employees").doc(name).set(newEmp)
+        const session2 = JSON.parse(localStorage.getItem('flowdesk_session') || '{}');
+        const tenant2 = session2.tenant || 'default';
+        db.collection(`tenants/${tenant2}/employees`).doc(name).set(newEmp)
             .then(() => {
                 closeCreateEmployeeModal();
                 showToast(`"${name}" adlı çalışan başarıyla buluta kaydedildi!`);
@@ -1264,6 +1285,9 @@ function lcClose() {
     }
     // Kullanıcı adını header'da göster
     lcUpdateHeaderLabel();
+    // Tenant verilerini yeniden yükle (doğru şirkete ait veriler)
+    loadActiveUser();
+    initSimulationMode(document.getElementById("connectionBanner"));
 }
 
 function lcUpdateHeaderLabel() {
@@ -1299,8 +1323,9 @@ function lcLoginEmp() {
             return;
         }
     } else {
-        // empPasswords'da yoksa flowdesk_employees içinde ara (fallback)
-        const empList = JSON.parse(localStorage.getItem('flowdesk_employees') || '[]');
+        // empPasswords'da yoksa tenant'a ait flowdesk_employees içinde ara (fallback)
+        const tenantEmpKey = 'flowdesk_employees_' + tenant;
+        const empList = JSON.parse(localStorage.getItem(tenantEmpKey) || '[]');
         const emp = empList.find(e => e.name.toLowerCase() === nameLower);
         if (!emp) {
             lcErr(errId, '❌ Bu isimde personel kayıtlı değil. Patronunuza başvurun.');
@@ -1312,8 +1337,9 @@ function lcLoginEmp() {
         }
     }
 
-    // Gerçek adı bul (büyük/küçük harf için flowdesk_employees'dan al)
-    const empList2 = JSON.parse(localStorage.getItem('flowdesk_employees') || '[]');
+    // Gerçek adı bul (büyük/küçük harf için tenant'a ait employees'dan al)
+    const tenantEmpKey2 = 'flowdesk_employees_' + tenant;
+    const empList2 = JSON.parse(localStorage.getItem(tenantEmpKey2) || '[]');
     const empObj = empList2.find(e => e.name.toLowerCase() === nameLower);
     const realName = empObj ? empObj.name : name;
 
@@ -1380,6 +1406,11 @@ function lcLogout() {
     if (!confirm('Oturumu kapatmak istediğinize emin misiniz?')) return;
     localStorage.removeItem('flowdesk_session');
     localStorage.removeItem('flowdesk_active_user');
+    // In-memory state'i temizle (bir sonraki firma giriş yaptığında temiz başlasın)
+    state.groups = [];
+    state.employees = [];
+    state.activeGroupId = null;
+    state.activeUser = "Patron";
     // Overlay'i tekrar göster
     const ov = document.getElementById('loginOverlay');
     if (ov) {

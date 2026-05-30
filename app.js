@@ -40,8 +40,25 @@ const getFutureDateString = (daysOffset) => {
     return d.toISOString().split('T')[0];
 };
 
-// Initial Mock Data — boş başlar
-const INITIAL_MOCK_DATA = [];
+// ── Firebase'i hemen başlat (DOMContentLoaded beklemeden) ──
+(function initFirebaseNow() {
+    try {
+        if (typeof firebase === 'undefined') {
+            console.error("❌ Firebase SDK yüklenemedi. index.html'deki script taglarını kontrol edin.");
+            return;
+        }
+        if (!firebase.apps || firebase.apps.length === 0) {
+            firebase.initializeApp(firebaseConfig);
+        }
+        db = firebase.firestore();
+        isFirebaseConnected = true;
+        console.log("✅ Firebase başarıyla başlatıldı.");
+    } catch (e) {
+        console.error("❌ Firebase başlatma hatası:", e);
+        isFirebaseConnected = false;
+        db = null;
+    }
+})();
 
 // App Init
 window.addEventListener("DOMContentLoaded", () => {
@@ -56,28 +73,23 @@ window.addEventListener("DOMContentLoaded", () => {
     }, 60000);
 });
 
+// Initial Mock Data — boş başlar
+const INITIAL_MOCK_DATA = [];
+
 // Initialize Firebase or Simulation Fallback
 function initFirebaseOrSimulation() {
     const banner = document.getElementById("connectionBanner");
 
-    const isFirebaseConfigured = firebaseConfig.apiKey &&
-        firebaseConfig.apiKey !== "AIzaSyBULevJdG_T3I_iCTKSlRTPVPSNCa1Un8I" &&
-        firebaseConfig.projectId !== "sirketicihaberlesme-647b7";
+    if (isFirebaseConnected && db) {
+        banner.innerText = "☁️ Bulut Bağlantısı Aktif (Firebase)";
+        banner.className = "connection-status online-mode";
 
-    if (isFirebaseConfigured) {
-        try {
-            firebase.initializeApp(firebaseConfig);
-            db = firebase.firestore();
-            isFirebaseConnected = true;
-
-            banner.innerText = "Bulut Bağlantısı Aktif (Firebase Firestore)";
-            banner.className = "connection-status online-mode";
-
+        const session = JSON.parse(localStorage.getItem('flowdesk_session') || '{}');
+        if (session.tenant) {
             listenToFirestore();
-            showToast("Firebase Firestore bağlantısı kuruldu!");
-        } catch (error) {
-            console.error("Firebase başlatma hatası:", error);
-            initSimulationMode(banner);
+        } else {
+            // Oturum yoksa sadece banner'ı güncelle, listener açma
+            renderApp();
         }
     } else {
         initSimulationMode(banner);
@@ -86,7 +98,13 @@ function initFirebaseOrSimulation() {
 
 // Fallback: Simulation Mode with BroadcastChannel sync
 function initSimulationMode(banner) {
-    isFirebaseConnected = false;
+    // NOT: isFirebaseConnected'a dokunma — Firebase zaten bağlıysa değiştirme
+    // Sadece Firebase bağlı değilse simulation mode'a geç
+    if (isFirebaseConnected) {
+        // Firebase bağlıysa bu fonksiyonu erken çık — banner zaten güncellendi
+        return;
+    }
+
     banner.innerText = "Çevrimdışı (Simülasyon Modu - Sekmeler Arası Eşzamanlı)";
     banner.className = "connection-status offline-mode";
 
@@ -151,15 +169,29 @@ function initSimulationMode(banner) {
     renderApp();
 }
 
+// Firestore listener unsubscribe referansları
+let _unsubEmployees = null;
+let _unsubGroups = null;
+let _currentListenerTenant = null;
+
 // Listen to Firestore real-time snapshots
 function listenToFirestore() {
     const session = JSON.parse(localStorage.getItem('flowdesk_session') || '{}');
     const tenant = session.tenant || 'default';
+
+    // Aynı tenant için zaten listener varsa tekrar açma
+    if (_currentListenerTenant === tenant) return;
+
+    // Önceki listener'ları kapat
+    if (_unsubEmployees) { _unsubEmployees(); _unsubEmployees = null; }
+    if (_unsubGroups) { _unsubGroups(); _unsubGroups = null; }
+    _currentListenerTenant = tenant;
+
     const empCollection = `tenants/${tenant}/employees`;
     const grpCollection = `tenants/${tenant}/groups`;
 
     // 1. Listen to Employees collection
-    db.collection(empCollection)
+    _unsubEmployees = db.collection(empCollection)
         .orderBy("createdAt", "asc")
         .onSnapshot((snapshot) => {
             let fetchedEmployees = [];
@@ -167,22 +199,16 @@ function listenToFirestore() {
                 fetchedEmployees.push(doc.data());
             });
 
-            if (fetchedEmployees.length === 0) {
-                DEFAULT_EMPLOYEES.forEach(emp => {
-                    db.collection(empCollection).doc(emp.name).set(emp);
-                });
-            } else {
-                state.employees = fetchedEmployees;
-                renderRoleSwitcher();
-                renderEmployeeChips();
-                renderApp();
-            }
+            state.employees = fetchedEmployees;
+            renderRoleSwitcher();
+            renderEmployeeChips();
+            renderApp();
         }, (error) => {
             console.error("Firestore employees listen error:", error);
         });
 
     // 2. Listen to Groups collection
-    db.collection(grpCollection)
+    _unsubGroups = db.collection(grpCollection)
         .orderBy("createdAt", "desc")
         .onSnapshot((snapshot) => {
             const fetchedGroups = [];
@@ -951,13 +977,19 @@ function submitNewEmployee() {
     // Şifreyi fd_companies içindeki tenant'a da kaydet
     const session = JSON.parse(localStorage.getItem("flowdesk_session") || "{}");
     if (session.tenant) {
-        const companies = JSON.parse(localStorage.getItem("fd_companies") || "{}");
-        if (companies[session.tenant]) {
-            if (!companies[session.tenant].empPasswords) {
-                companies[session.tenant].empPasswords = {};
+        if (isFirebaseConnected) {
+            // Firestore: fd_companies dokümanındaki empPasswords alanını güncelle
+            const updateData = {};
+            updateData[`empPasswords.${name.toLowerCase()}`] = pass;
+            db.collection('fd_companies').doc(session.tenant).update(updateData)
+                .catch(err => console.error("empPasswords Firestore güncelleme hatası:", err));
+        } else {
+            const companies = JSON.parse(localStorage.getItem("fd_companies") || "{}");
+            if (companies[session.tenant]) {
+                if (!companies[session.tenant].empPasswords) companies[session.tenant].empPasswords = {};
+                companies[session.tenant].empPasswords[name.toLowerCase()] = pass;
+                localStorage.setItem("fd_companies", JSON.stringify(companies));
             }
-            companies[session.tenant].empPasswords[name.toLowerCase()] = pass;
-            localStorage.setItem("fd_companies", JSON.stringify(companies));
         }
     }
 
@@ -1283,11 +1315,17 @@ function lcClose() {
         ov.style.transition = 'opacity 0.5s ease';
         setTimeout(() => ov.style.display = 'none', 500);
     }
-    // Kullanıcı adını header'da göster
     lcUpdateHeaderLabel();
-    // Tenant verilerini yeniden yükle (doğru şirkete ait veriler)
     loadActiveUser();
-    initSimulationMode(document.getElementById("connectionBanner"));
+
+    if (isFirebaseConnected) {
+        // Firebase bağlıysa listener'ları (yeniden) başlat
+        listenToFirestore();
+    } else {
+        // Offline modda tenant'a ait veriyi yükle
+        const banner = document.getElementById("connectionBanner");
+        initSimulationMode(banner);
+    }
 }
 
 function lcUpdateHeaderLabel() {
@@ -1298,107 +1336,167 @@ function lcUpdateHeaderLabel() {
     label.innerText = session.name + ' (' + roleText + ')';
 }
 
-// Personel Girişi
-function lcLoginEmp() {
+// ── Firestore yardımcısı: db hazır değilse bekle ──
+function getFirestoreDB() {
+    return db;
+}
+
+// Personel Girişi (Firestore destekli)
+async function lcLoginEmp() {
     const tenant = document.getElementById('lc-emp-tenant').value.trim();
     const name = document.getElementById('lc-emp-name').value.trim();
     const pass = document.getElementById('lc-emp-pass').value.trim();
     const errId = 'lc-emp-err';
-
     document.getElementById(errId).classList.remove('on');
-
     if (!tenant || !name || !pass) { lcErr(errId, '❌ Lütfen tüm alanları doldurun.'); return; }
 
-    const companies = JSON.parse(localStorage.getItem('fd_companies') || '{}');
-    if (!companies[tenant]) { lcErr(errId, '❌ Bu şirket kodu sistemde kayıtlı değil.'); return; }
+    const fdb = getFirestoreDB();
 
-    const td = companies[tenant];
-    const empPasswords = td.empPasswords || {};
-    const nameLower = name.toLowerCase();
+    if (fdb) {
+        // — Firestore yolu —
+        try {
+            lcToast('⏳ Giriş yapılıyor...');
+            const companyDoc = await fdb.collection('fd_companies').doc(tenant).get();
+            if (!companyDoc.exists) { lcErr(errId, '❌ Bu şirket kodu sistemde kayıtlı değil.'); return; }
 
-    // Önce fd_companies içindeki empPasswords'a bak (en güvenilir kaynak)
-    if (empPasswords[nameLower] !== undefined) {
-        if (pass !== empPasswords[nameLower]) {
-            lcErr(errId, '❌ Şifre hatalı. Patronunuzdan aldığınız şifreyi girin.');
-            return;
+            const td = companyDoc.data();
+            const nameLower = name.toLowerCase();
+            const empPasswords = td.empPasswords || {};
+
+            if (empPasswords[nameLower] === undefined) {
+                lcErr(errId, '❌ Bu isimde personel kayıtlı değil. Patronunuza başvurun.');
+                return;
+            }
+            if (pass !== empPasswords[nameLower]) {
+                lcErr(errId, '❌ Şifre hatalı. Patronunuzdan aldığınız şifreyi girin.');
+                return;
+            }
+
+            // Gerçek adı bul
+            const empSnap = await fdb.collection(`tenants/${tenant}/employees`).get();
+            let realName = name;
+            empSnap.forEach(doc => {
+                if (doc.data().name && doc.data().name.toLowerCase() === nameLower) realName = doc.data().name;
+            });
+
+            localStorage.setItem('flowdesk_active_user', realName);
+            localStorage.setItem('flowdesk_session', JSON.stringify({ role: 'employee', name: realName, tenant }));
+            lcToast('✅ Giriş başarılı! Hoş geldin, ' + realName);
+            setTimeout(lcClose, 1000);
+        } catch (e) {
+            console.error(e);
+            lcErr(errId, '❌ Bağlantı hatası. Lütfen tekrar deneyin.');
         }
     } else {
-        // empPasswords'da yoksa tenant'a ait flowdesk_employees içinde ara (fallback)
-        const tenantEmpKey = 'flowdesk_employees_' + tenant;
-        const empList = JSON.parse(localStorage.getItem(tenantEmpKey) || '[]');
-        const emp = empList.find(e => e.name.toLowerCase() === nameLower);
-        if (!emp) {
-            lcErr(errId, '❌ Bu isimde personel kayıtlı değil. Patronunuza başvurun.');
-            return;
-        }
-        if (!emp.password || pass !== emp.password) {
-            lcErr(errId, '❌ Şifre hatalı. Patronunuzdan aldığınız şifreyi girin.');
-            return;
-        }
+        // — LocalStorage fallback —
+        const companies = JSON.parse(localStorage.getItem('fd_companies') || '{}');
+        if (!companies[tenant]) { lcErr(errId, '❌ Bu şirket kodu sistemde kayıtlı değil.'); return; }
+        const td = companies[tenant];
+        const empPasswords = td.empPasswords || {};
+        const nameLower = name.toLowerCase();
+        if (empPasswords[nameLower] === undefined) { lcErr(errId, '❌ Bu isimde personel kayıtlı değil.'); return; }
+        if (pass !== empPasswords[nameLower]) { lcErr(errId, '❌ Şifre hatalı.'); return; }
+        const empList = JSON.parse(localStorage.getItem('flowdesk_employees_' + tenant) || '[]');
+        const empObj = empList.find(e => e.name.toLowerCase() === nameLower);
+        const realName = empObj ? empObj.name : name;
+        localStorage.setItem('flowdesk_active_user', realName);
+        localStorage.setItem('flowdesk_session', JSON.stringify({ role: 'employee', name: realName, tenant }));
+        lcToast('✅ Giriş başarılı! Hoş geldin, ' + realName);
+        setTimeout(lcClose, 1000);
     }
-
-    // Gerçek adı bul (büyük/küçük harf için tenant'a ait employees'dan al)
-    const tenantEmpKey2 = 'flowdesk_employees_' + tenant;
-    const empList2 = JSON.parse(localStorage.getItem(tenantEmpKey2) || '[]');
-    const empObj = empList2.find(e => e.name.toLowerCase() === nameLower);
-    const realName = empObj ? empObj.name : name;
-
-    // Başarılı
-    localStorage.setItem('flowdesk_active_user', realName);
-    localStorage.setItem('flowdesk_session', JSON.stringify({ role: 'employee', name: realName, tenant }));
-    lcToast('✅ Giriş başarılı! Hoş geldin, ' + realName);
-    setTimeout(lcClose, 1000);
 }
 
-// Patron Girişi
-function lcLoginBoss() {
+// Patron Girişi (Firestore destekli)
+async function lcLoginBoss() {
     const tenant = document.getElementById('lc-boss-tenant').value.trim();
     const pass = document.getElementById('lc-boss-pass').value.trim();
     const errId = 'lc-boss-err';
-
     document.getElementById(errId).classList.remove('on');
-
     if (!tenant || !pass) { lcErr(errId, '❌ Lütfen tüm alanları doldurun.'); return; }
 
-    const companies = JSON.parse(localStorage.getItem('fd_companies') || '{}');
-    if (!companies[tenant]) { lcErr(errId, '❌ Bu şirket kodu sistemde kayıtlı değil.'); return; }
+    const fdb = getFirestoreDB();
 
-    if (pass !== companies[tenant].bossPass) { lcErr(errId, '❌ Patron şifresi yanlış.'); return; }
+    if (fdb) {
+        // — Firestore yolu —
+        try {
+            lcToast('⏳ Giriş yapılıyor...');
+            const companyDoc = await fdb.collection('fd_companies').doc(tenant).get();
+            if (!companyDoc.exists) { lcErr(errId, '❌ Bu şirket kodu sistemde kayıtlı değil.'); return; }
+            const td = companyDoc.data();
+            if (pass !== td.bossPass) { lcErr(errId, '❌ Patron şifresi yanlış.'); return; }
 
-    // Başarılı
-    localStorage.setItem('flowdesk_active_user', 'Patron');
-    localStorage.setItem('flowdesk_session', JSON.stringify({ role: 'boss', name: companies[tenant].ownerName, tenant }));
-    lcToast('✅ Patron girişi başarılı! Hoş geldin, ' + companies[tenant].ownerName);
-    setTimeout(lcClose, 1000);
+            localStorage.setItem('flowdesk_active_user', 'Patron');
+            localStorage.setItem('flowdesk_session', JSON.stringify({ role: 'boss', name: td.ownerName, tenant }));
+            lcToast('✅ Patron girişi başarılı! Hoş geldin, ' + td.ownerName);
+            setTimeout(lcClose, 1000);
+        } catch (e) {
+            console.error(e);
+            lcErr(errId, '❌ Bağlantı hatası. Lütfen tekrar deneyin.');
+        }
+    } else {
+        // — LocalStorage fallback —
+        const companies = JSON.parse(localStorage.getItem('fd_companies') || '{}');
+        if (!companies[tenant]) { lcErr(errId, '❌ Bu şirket kodu sistemde kayıtlı değil.'); return; }
+        if (pass !== companies[tenant].bossPass) { lcErr(errId, '❌ Patron şifresi yanlış.'); return; }
+        localStorage.setItem('flowdesk_active_user', 'Patron');
+        localStorage.setItem('flowdesk_session', JSON.stringify({ role: 'boss', name: companies[tenant].ownerName, tenant }));
+        lcToast('✅ Patron girişi başarılı! Hoş geldin, ' + companies[tenant].ownerName);
+        setTimeout(lcClose, 1000);
+    }
 }
 
-// Şirket Kur
-function lcRegister() {
+// Şirket Kur (Firestore destekli)
+async function lcRegister() {
     const company = document.getElementById('lc-reg-company').value.trim();
     const owner = document.getElementById('lc-reg-owner').value.trim();
     const pass = document.getElementById('lc-reg-pass').value.trim();
     const tid = document.getElementById('lc-reg-tid').value.trim();
     const errId = 'lc-reg-err';
-
     document.getElementById(errId).classList.remove('on');
-
     if (!company || !owner || !pass) { lcErr(errId, '❌ Lütfen tüm alanları doldurun.'); return; }
     if (pass.length < 4) { lcErr(errId, '❌ Şifre en az 4 karakter olmalıdır.'); return; }
 
-    const companies = JSON.parse(localStorage.getItem('fd_companies') || '{}');
-    companies[tid] = { companyName: company, ownerName: owner, bossPass: pass, empPass: pass, createdAt: Date.now() };
-    localStorage.setItem('fd_companies', JSON.stringify(companies));
+    const fdb = getFirestoreDB();
+    const companyData = { companyName: company, ownerName: owner, bossPass: pass, empPasswords: {}, createdAt: Date.now() };
 
-    // Uyarı göster
-    document.getElementById('lc-reg-warn-code').innerText = tid;
-    document.getElementById('lc-reg-warn').classList.add('on');
+    if (fdb) {
+        // — Firestore yolu —
+        try {
+            lcToast('⏳ Şirket kaydediliyor...');
+            // Tenant ID çakışma kontrolü
+            const existing = await fdb.collection('fd_companies').doc(tid).get();
+            if (existing.exists) {
+                // Aynı ID üretildiyse yeni bir tane oluştur
+                const newTid = lcGenTenant();
+                document.getElementById('lc-reg-tid').value = newTid;
+                lcErr(errId, '⚠️ Bu kod zaten alınmış, yeni kod üretildi. Tekrar kaydet.');
+                return;
+            }
+            await fdb.collection('fd_companies').doc(tid).set(companyData);
 
-    lcToast('🏢 Şirket kaydedildi! Yönlendiriliyor...');
+            document.getElementById('lc-reg-warn-code').innerText = tid;
+            document.getElementById('lc-reg-warn').classList.add('on');
+            lcToast('🏢 Şirket Firestore\'a kaydedildi!');
 
-    localStorage.setItem('flowdesk_active_user', 'Patron');
-    localStorage.setItem('flowdesk_session', JSON.stringify({ role: 'boss', name: owner, tenant: tid }));
-
-    setTimeout(lcClose, 3000);
+            localStorage.setItem('flowdesk_active_user', 'Patron');
+            localStorage.setItem('flowdesk_session', JSON.stringify({ role: 'boss', name: owner, tenant: tid }));
+            setTimeout(lcClose, 3000);
+        } catch (e) {
+            console.error(e);
+            lcErr(errId, '❌ Kayıt sırasında hata oluştu. Tekrar deneyin.');
+        }
+    } else {
+        // — LocalStorage fallback —
+        const companies = JSON.parse(localStorage.getItem('fd_companies') || '{}');
+        companies[tid] = companyData;
+        localStorage.setItem('fd_companies', JSON.stringify(companies));
+        document.getElementById('lc-reg-warn-code').innerText = tid;
+        document.getElementById('lc-reg-warn').classList.add('on');
+        lcToast('🏢 Şirket kaydedildi (çevrimdışı)!');
+        localStorage.setItem('flowdesk_active_user', 'Patron');
+        localStorage.setItem('flowdesk_session', JSON.stringify({ role: 'boss', name: owner, tenant: tid }));
+        setTimeout(lcClose, 3000);
+    }
 }
 
 // Çıkış
@@ -1411,6 +1509,10 @@ function lcLogout() {
     state.employees = [];
     state.activeGroupId = null;
     state.activeUser = "Patron";
+    // Firestore listener'ları sıfırla
+    if (_unsubEmployees) { _unsubEmployees(); _unsubEmployees = null; }
+    if (_unsubGroups) { _unsubGroups(); _unsubGroups = null; }
+    _currentListenerTenant = null;
     // Overlay'i tekrar göster
     const ov = document.getElementById('loginOverlay');
     if (ov) {
@@ -1432,6 +1534,18 @@ window.addEventListener('DOMContentLoaded', function () {
     // Tenant ID input başlat
     const tidEl = document.getElementById('lc-reg-tid');
     if (tidEl) tidEl.value = lcGenTenant();
+
+    // Login ekranında Firebase durum göstergesi
+    const lcStatusEl = document.getElementById('lc-firebase-status');
+    if (lcStatusEl) {
+        if (isFirebaseConnected) {
+            lcStatusEl.innerHTML = '🟢 Sunucu bağlantısı aktif — veriler tüm cihazlarda paylaşılır';
+            lcStatusEl.style.color = '#6ee7b7';
+        } else {
+            lcStatusEl.innerHTML = '🔴 Sunucu bağlantısı yok — veriler sadece bu tarayıcıda saklanır';
+            lcStatusEl.style.color = '#fca5a5';
+        }
+    }
 
     const session = localStorage.getItem('flowdesk_session');
     if (session) {
